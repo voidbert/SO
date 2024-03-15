@@ -25,11 +25,17 @@ assert_installed_command valgrind
 assert_installed_command kcachegrind
 
 MAKEFILE_BUILDDIR="$(get_makefile_const BUILDDIR)"
-MAKEFILE_EXENAME="$(get_makefile_const EXENAME)"
-EXE_PATH="$MAKEFILE_BUILDDIR/$MAKEFILE_EXENAME"
+if ! [ -d "$MAKEFILE_BUILDDIR" ]; then
+	echo "Executables not yet built! Build them and try again. Leaving ..." >&2
+	exit 1
+fi
 
-if ! [ -f "$EXE_PATH" ] || ! [ -f "${EXE_PATH}_type" ]; then
-	echo "Executable not built! Build it and try again. Leaving ..." >&2
+echo "Choose a program:"
+choose "Executable: " EXE_PATH \
+	"$(find "$MAKEFILE_BUILDDIR" -type f -executable)"
+
+if ! [ -f "${EXE_PATH}_type" ]; then
+	echo "Executable build type (${EXE_PATH}_test) not found! Leaving ..." >&2
 	exit 1
 elif [ "$(cat "${EXE_PATH}_type")" != "PROFILE" ]; then
 	printf "Executable not built in PROFILE mode %s" "($(cat "${EXE_PATH}_type") "

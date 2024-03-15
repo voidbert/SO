@@ -80,3 +80,32 @@ yesno() {
 		fi
 	fi
 }
+
+# Ask the user to choose an element from a list of elements. The program will be left on invalid
+# user input.
+# $1 - Prompt
+# $2 - Variable name of where to place the chosen element (like read)
+# $3 - Elements, newline separated
+choose() {
+	line_count="$(echo "$3" | wc -l)"
+
+	i=0
+	echo "$3" | while read -r element; do
+		i=$((i + 1))
+		spaces=$(printf "%$(( ${#line_count} - ${#i} ))s")
+		printf "  (%s)%s - %s\n" "$i" "$spaces" "$element"
+	done
+
+	stdbuf -o 0 printf "$1"
+	read -r user_input
+	if ! (echo "$user_input" | grep -qE '^[0-9\-]+$') || \
+		[ "$user_input" -lt 1 ] || [ "$user_input" -gt "$line_count" ]; then
+
+		echo "Invalid input. Leaving ..." >&2
+		exit 1
+	fi
+
+	# shellcheck disable=SC2034
+	result="$(echo "$3" | sed "${user_input}q;d")"
+	eval "$2=\"\$result\""
+}

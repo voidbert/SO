@@ -37,7 +37,7 @@ COMMANDS_PER_RULE=3
 
 {
 	# Add the dependency file (makefile rule) to the target of the new rule
-	printf "$1 " | cat - "${1}2"
+	printf "%s " "$1" | cat - "${1}2"
 
 	# Keep the commands from the original rule
 	tail "-n-$COMMANDS_PER_RULE" "$1"
