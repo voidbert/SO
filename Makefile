@@ -1,32 +1,42 @@
 # CONFIGURATION VARIABLES
 
-CC              := gcc
-CFLAGS          := -Wall -Wextra -Werror -pedantic
-STANDARDS       := -std=c99 -D_POSIX_C_SOURCE=200809L
-LIBS            := -lm -lpthread
+CC        := gcc
+CFLAGS    := -Werror -Wall -Wextra -pedantic -Wshadow -Wcast-qual -Wfloat-conversion \
+	-Wwrite-strings -Wstrict-prototypes -Winit-self -Wfloat-equal
+STANDARDS := -std=c99 -D_POSIX_C_SOURCE=200809L
+LIBS      :=
 
-DEBUG_CFLAGS    := -O0 -ggdb3
-RELEASE_CFLAGS  := -O2
-PROFILE_CFLAGS  := -O2 -ggdb3
+DEBUG_CFLAGS   := -O0 -ggdb3
+RELEASE_CFLAGS := -O2
+PROFILE_CFLAGS := -O2 -ggdb3
 
 # Note: none of these directories can be the root of the project
 # Also, these may need to be updated in .gitignore
-BUILDDIR        := build
-EXENAME         := SO
-DEPDIR          := deps
-DOCSDIR         := docs
-OBJDIR          := obj
+BUILDDIR       := bin
+SERVER_EXENAME := orchestrator
+CLIENT_EXENAME := client
+DEPDIR         := deps
+DOCSDIR        := docs
+OBJDIR         := obj
 
 # Default installation directory (if PREFIX is not set)
-PREFIX          ?= $(HOME)/.local
+PREFIX ?= $(HOME)/.local
 
 # END OF CONFIGURATION
 
-SOURCES = $(shell find "src" -name '*.c' -type f)
-HEADERS = $(shell find "include" -name '*.h' -type f)
+COMMON_SOURCES = $(shell find src -maxdepth 1 -name '*.c' -type f )
+SERVER_SOURCES = $(COMMON_SOURCES) $(shell find src/server -name '*.c' -type f)
+CLIENT_SOURCES = $(COMMON_SOURCES) $(shell find src/client -name '*.c' -type f)
+
+COMMON_HEADERS = $(shell find include -maxdepth 1 -name '*.h' -type f)
+SERVER_HEADERS = $(COMMON_HEADERS) $(shell find include/server -name '*.c' -type f)
+CLIENT_HEADERS = $(COMMON_HEADERS) $(shell find include/client -name '*.c' -type f)
+
+SERVER_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(SERVER_SOURCES))
+CLIENT_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(CLIENT_SOURCES))
+
 THEMES  = $(wildcard theme/*)
-OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(SOURCES))
-DEPENDS = $(patsubst src/%.c, $(DEPDIR)/%.d, $(SOURCES))
+DEPENDS = $(patsubst src/%.c, $(DEPDIR)/%.d, $(COMMON_SOURCES) $(SERVER_SOURCES) $(CLIENT_SOURCES))
 
 ifeq ($(DEBUG), 1)
 	CFLAGS += $(DEBUG_CFLAGS)
@@ -41,21 +51,25 @@ endif
 CFLAGS += $(STANDARDS)
 
 # Only generate dependencies for tasks that require them
-# THIS WILL NOT WORK IF YOU TRY TO MAKE A INDIVIDUAL FILES
+# THIS WILL NOT WORK IF YOU TRY TO MAKE AN INDIVIDUAL FILE
 ifeq (, $(MAKECMDGOALS))
-	INCLUDE_DEPENDS = Y
-else ifneq (, $(filter default, $(MAKECMDGOALS)))
 	INCLUDE_DEPENDS = Y
 else ifneq (, $(filter all, $(MAKECMDGOALS)))
 	INCLUDE_DEPENDS = Y
 else ifneq (, $(filter install, $(MAKECMDGOALS)))
 	INCLUDE_DEPENDS = Y
+else ifneq (, $(filter server, $(MAKECMDGOALS)))
+	INCLUDE_DEPENDS = Y
+else ifneq (, $(filter client, $(MAKECMDGOALS)))
+	INCLUDE_DEPENDS = Y
 else
 	INCLUDE_DEPENDS = N
 endif
 
-default: $(BUILDDIR)/$(EXENAME)
-all: $(BUILDDIR)/$(EXENAME) $(DOCSDIR)
+default: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)
+all: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME) $(DOCSDIR)
+server: $(BUILDDIR)/$(SERVER_EXENAME) # TODO - confirm if it's server or orchestrator
+client: $(BUILDDIR)/$(CLIENT_EXENAME)
 
 ifeq (Y, $(INCLUDE_DEPENDS))
 include $(DEPENDS)
@@ -64,7 +78,7 @@ endif
 # Welcome to my unorthodox meta-programming Makefile! To get auto-dependency generation working,
 # this code is unusual for a Makefile, but hey, it works!
 #
-# To compile a source file, a makefile rule is generated with $(CC) -MM, to account for header
+# To compile a source file, a Makefile rule is generated with $(CC) -MM, to account for header
 # dependencies. The commands that actually compile the source are added to that rule file before
 # its included. A script is also run in the end of the generated rule's execution, to regenerate
 # that same rule with any dependency change that may have occurred.
@@ -83,9 +97,14 @@ $(DEPDIR)/%.d: src/%.c Makefile
 	@printf "\t%s\n" "$(RULE_CMD_CC)" >> $@
 	@printf "\t%s\n" "$(RULE_CMD_SCRIPT)" >> $@
 
-$(BUILDDIR)/$(EXENAME) $(BUILDDIR)/$(EXENAME)_type: $(OBJECTS)
+$(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(SERVER_EXENAME)_type: $(SERVER_OBJECTS)
 	@mkdir -p $(BUILDDIR)
-	@echo $(BUILD_TYPE) > $(BUILDDIR)/$(EXENAME)_type
+	@echo $(BUILD_TYPE) > $(BUILDDIR)/$(SERVER_EXENAME)_type
+	$(CC) -o $@ $^ $(LIBS)
+
+$(BUILDDIR)/$(CLIENT_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)_type: $(CLIENT_OBJECTS)
+	@mkdir -p $(BUILDDIR)
+	@echo $(BUILD_TYPE) > $(BUILDDIR)/$(CLIENT_EXENAME)_type
 	$(CC) -o $@ $^ $(LIBS)
 
 define Doxyfile
@@ -96,6 +115,11 @@ define Doxyfile
 
 	PROJECT_NAME           = SO
 	USE_MDFILE_AS_MAINPAGE = README.md
+
+	ENABLE_PREPROCESSING   = YES
+	MACRO_EXPANSION        = YES
+	EXPAND_ONLY_PREDEF     = YES
+	PREDEFINED             = __attribute__(x)=
 
 	OUTPUT_DIRECTORY       = $(DOCSDIR)
 	GENERATE_HTML          = YES
@@ -115,9 +139,11 @@ $(DOCSDIR): $(SOURCES) $(HEADERS) $(THEMES)
 clean:
 	rm -r $(BUILDDIR) $(DEPDIR) $(DOCSDIR) $(OBJDIR) 2> /dev/null ; true
 
-install: $(BUILDDIR)/$(EXENAME)
-	install -Dm 755 $(BUILDDIR)/$(EXENAME) $(PREFIX)/bin
+install: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)
+	install -Dm 755 $(BUILDDIR)/$(SERVER_EXENAME) $(PREFIX)/bin
+	install -Dm 755 $(BUILDDIR)/$(CLIENT_EXENAME) $(PREFIX)/bin
 
 .PHONY: uninstall
 uninstall:
-	rm $(PREFIX)/bin/$(EXENAME)
+	rm $(PREFIX)/bin/$(SERVER_EXENAME)
+	rm $(PREFIX)/bin/$(CLIENT_EXENAME)

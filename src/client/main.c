@@ -15,8 +15,8 @@
  */
 
 /**
- * @file main.c
- * @brief Contains the entry point to the program.
+ * @file  main.c
+ * @brief Contains the entry point to the client program.
  */
 
 #include <stdio.h>
@@ -27,6 +27,6 @@
  * @retval 1 Insuccess
  */
 int main(void) {
-    puts("Hello, world!");
+    puts("Client says hello!");
     return 0;
 }
