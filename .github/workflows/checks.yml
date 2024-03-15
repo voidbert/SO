@@ -1,0 +1,29 @@
+name: Maintenance checks
+on:
+    pull_request:
+        paths:
+            - '.github/workflows/**'
+            - 'src/**'
+            - 'include/**'
+            - 'Makefile'
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            # Don't fail on empty include (not tracked by git)
+            - run: if ! [ -d include ]; then mkdir include; fi
+            - run: make
+    format:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            # clang-format doesn't come with act's local images. This is just for testing, as
+            # scripts contain
+            - run: if [ -n "$ACT" ]; then apt update && apt -y install clang-format; fi
+
+            # Don't fail on empty include (not tracked by git)
+            - run: if ! [ -d include ]; then mkdir include; fi
+            - run: ./scripts/format.sh --check

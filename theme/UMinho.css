@@ -1,0 +1,228 @@
+/*
+ * Copyright 2024 Humberto Gomes, José Lopes, José Matos
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--uminho-color: #981b1f;
+
+		--bg-color: #000501;
+		--fg-color: #eeeeee;
+
+		--menu-bg-color: var(--uminho-color);
+		--menu-fg-color: #eeeeee;
+		--menu-bg-hover-color: #ffffff;
+		--menu-fg-hover-color: var(--uminho-color);
+
+		--menu-dropdown-bg-color: var(--bg-color);
+		--menu-dropdown-fg-color: #eeeeee;
+		--menu-dropdown-bg-hover-color: #ffffff;
+		--menu-dropdown-fg-hover-color: #000000;
+	}
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--uminho-color: #981b1f;
+
+		--bg-color: #ffffff;
+		--fg-color: #000000;
+
+		--menu-bg-color: var(--uminho-color);
+		--menu-fg-color: #eeeeee;
+		--menu-bg-hover-color: var(--bg-color);
+		--menu-fg-hover-color: var(--uminho-color);
+
+		--menu-dropdown-bg-color: #ffffff;
+		--menu-dropdown-fg-color: #000000;
+		--menu-dropdown-bg-hover-color: #ffffff;
+		--menu-dropdown-fg-hover-color: var(--uminho-color);
+	}
+}
+
+html { /* Override Doxygen's CSS variables */
+	/* Page settings */
+	--page-background-color: var(--bg-color) !important;
+	--page-foreground-color: var(--fg-color) !important;
+
+	/* Title bar */
+	--title-background-color: var(--bg-color) !important;
+	/* --title-separator-color not needed, as border is removed */
+
+	/* Navigation bar */
+	--nav-background-color: var(--menu-bg-color) !important;
+	--nav-foreground-color: var(--menu-fg-color) !important;
+
+	--nav-text-normal-color: var(--menu-fg-color) !important;
+	--nav-text-hover-color: var(--menu-fg-hover-color) !important;
+	--nav-text-active-color: var(--menu-fg-hover-color) !important;
+
+	--nav-menu-button-color: var(--menu-fg-color) !important;
+	--nav-menu-background-color: var(--menu-dropdown-bg-color) !important;
+	--nav-menu-foreground-color: var(--menu-dropdown-fg-color) !important;
+
+	/* Search bar */
+	--search-background-color: #ffffff !important;
+	--search-foreground-color: #888888 !important;
+	--search-active-color: #000000 !important;
+
+	--search-filter-background-color: var(--menu-dropdown-bg-color) !important;
+	--search-filter-foreground-color: var(--menu-dropdown-fg-color) !important;
+	--search-filter-highlight-bg-color: var(--menu-dropdown-bg-hover-color) !important;
+	--search-filter-highlight-text-color: var(--menu-dropdown-fg-hover-color) !important;
+	--search-filter-border-color: var(--uminho-color) !important;
+
+	--search-results-foreground-color: var(--menu-dropdown-fg-color) !important;
+	--search-results-background-color: var(--menu-dropdown-bg-color) !important;
+	--search-results-border-color: var(--uminho-color) !important;
+
+	/* Footer */
+	--separator-color: var(--uminho-color) !important;
+	--footer-foreground-color: var(--uminho-color) !important;
+}
+
+/* Title bar */
+
+#titlearea { /* Title bar */
+	padding: 1rem;
+	width: calc(100% - 2rem);
+
+	border-bottom: none;
+}
+
+#projectlogo img { /* Title bar: project logo icon */
+	width: 5rem;
+	margin-right: 1rem;
+}
+
+#projectname { /* Title bar: project name */
+	font-weight: bold;
+}
+
+/* Navigation bar */
+
+.sm-dox { /* Navigation bar */
+	background-color: var(--nav-background-color);
+	background-image: none;
+}
+
+.sm-dox a { /* Navigation bar: options */
+	text-shadow: none;
+	font-weight: bold;
+
+	background-image: none !important; /* !important used to fix artifact on mouse leave */
+}
+
+.sm-dox a:focus, .sm-dox a:hover, .sm-dox a:active {
+	/* Navigation bar: options during interaction */
+
+	background-color: var(--menu-bg-hover-color);
+	background-image: none;
+
+	text-shadow: none;
+	color: var(--menu-fg-hover-color);
+
+	border-radius: 0px !important;
+	-moz-border-radius: 0px !important;
+	-webkit-border-radius: 0px !important;
+}
+
+@media (min-width: 768px) { /* Navigation bar: dropdown in an horizontal layout */
+	.sm-dox ul {
+		border: 2px solid var(--menu-bg-color);
+
+		border-radius: 0.5rem;
+		-moz-border-radius: 0.5rem;
+		-webkit-border-radius: 0.5rem;
+	}
+}
+
+.sm-dox ul { /* Navigation bar: dropdown */
+	box-shadow: none;
+	-moz-box-shadow: none;
+	-webkit-box-shadow: none;
+
+	border-radius: 0px;
+	-moz-border-radius: 0px;
+	-webkit-border-radius: 0px;
+}
+
+.sm-dox ul::before, .sm-dox ul::after { /* Navigation bar: dropdown arrow */
+	display: none;
+}
+
+.sm-dox ul a { /* Navigation bar: dropdown items */
+	color: var(--nav-menu-foreground-color);
+}
+
+.sm-dox ul a:focus, .sm-dox ul a:hover, .sm-dox ul a:active {
+	/* Navigation bar: dropdown items during interaction */
+
+	background-image: none;
+	background-color: var(--menu-dropdown-bg-hover-color);
+	color: var(--menu-dropdown-fg-hover-color) !important;
+	text-shadow: none;
+}
+
+.main-menu-btn-icon, .main-menu-btn-icon::before, .main-menu-btn-icon::after {
+	/* Navigation bar: hambuger menu or X icon */
+
+	transform: translateZ(0); /* For anti-aliasing */
+}
+
+/* Search box */
+
+#MSearchBox { /* Search box */
+	box-shadow: none;
+	-moz-box-shadow: none;
+	-webkit-box-shadow: none;
+
+	border-radius: 0.2em;
+	-moz-border-radius: 0.2em;
+	-webkit-border-radius: 0.2em;
+}
+
+#MSearchSelectWindow { /* Search box: magnifier dropdown */
+	box-shadow: none;
+	-moz-box-shadow: none;
+	-webkit-box-shadow: none;
+
+	border: 2px solid var(--search-filter-border-color);
+	border-radius: 0.5rem;
+	-moz-border-radius: 0.5rem;
+	-webkit-border-radius: 0.5rem;
+}
+
+.SelectItem { /* Search box: magnifier dropdown items */
+	font: 10pt var(--font-family-search); /* Increase font size */
+}
+
+#MSearchResultsWindow { /* Search box: search results */
+	border: 2px solid var(--search-results-border-color);
+
+	border-radius: 0.5rem;
+	-moz-border-radius: 0.5rem;
+	-webkit-border-radius: 0.5rem;
+}
+
+#MSearchResultsWindow a {
+	color: var(--page-link-color);
+}
+
+/* Page header */
+
+.header {
+	background-image: none !important; /* Remove shadow */
+}

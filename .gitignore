@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# VSCode
+.vscode
+
+# Build directories
+build
+deps
+docs
+obj

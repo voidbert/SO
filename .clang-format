@@ -1,0 +1,196 @@
+---
+# ----------------
+# GENERAL SETTINGS
+# ----------------
+
+BasedOnStyle: LLVM
+Language:     Cpp
+Standard:     Latest
+
+# ---------
+# ALIGNMENT
+# ---------
+
+AlignAfterOpenBracket:  Align
+AlignArrayOfStructures: Left
+
+AlignConsecutiveAssignments:  AcrossComments
+AlignConsecutiveBitFields:    AcrossComments
+AlignConsecutiveDeclarations: AcrossComments
+AlignConsecutiveMacros:       AcrossComments
+
+AlignEscapedNewlines:  Right
+AlignOperands:         Align
+AlignTrailingComments: true # Note: changes with clang 16
+
+# ----------------------
+# ARGUMENTS & PARAMETERS
+# ----------------------
+
+AllowAllArgumentsOnNextLine:               false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+ExperimentalAutoDetectBinPacking: false
+BinPackArguments:                 false
+BinPackParameters:                false
+
+# --------
+# COMMENTS
+# --------
+
+ReflowComments:               false
+SpacesBeforeTrailingComments: 1
+SpacesInLineCommentPrefix:
+  Minimum:  1
+  Maximum: -1
+
+# ------------
+# CURLY BRACES
+# ------------
+
+BraceWrapping:
+  AfterCaseLabel:        false
+  AfterControlStatement: Never
+  AfterEnum:             false
+  AfterFunction:         false
+  AfterStruct:           false
+  AfterUnion:            false
+  BeforeElse:            false
+  BeforeWhile:           false
+  IndentBraces:          false
+  SplitEmptyFunction:    false
+  SplitEmptyRecord:      false
+
+BreakBeforeBraces:   Attach
+RemoveBracesLLVM:    false
+
+# -------------------
+# FORMATTER PENALTIES
+# -------------------
+
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakOpenParenthesis: 0
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+PenaltyIndentedWhitespace: 0
+
+# ------------
+# HEADER FILES
+# ------------
+
+SortIncludes:        CaseSensitive
+IncludeBlocks:       Regroup
+IncludeCategories:
+  - Regex:           '^<'
+    Priority:        0
+    SortPriority:    0
+    CaseSensitive:   false
+  - Regex:           '^"'
+    Priority:        1
+    SortPriority:    1
+    CaseSensitive:   false
+
+IncludeIsMainRegex: ''
+IncludeIsMainSourceRegex: ''
+
+# -----------
+# INDENTATION
+# -----------
+
+ContinuationIndentWidth: 4
+IndentWidth:             4
+PPIndentWidth:           4
+TabWidth:                4
+UseTab:                  Never
+
+IndentCaseBlocks:           false
+IndentCaseLabels:           true
+IndentGotoLabels:           true
+IndentPPDirectives:         BeforeHash
+IndentWrappedFunctionNames: true
+
+# -------------
+# LINE BREAKING
+# -------------
+
+AlwaysBreakAfterReturnType:        None
+AlwaysBreakBeforeMultilineStrings: false
+BreakBeforeBinaryOperators:        None
+BreakBeforeTernaryOperators:       true
+BreakBeforeInheritanceComma:       false
+BreakStringLiterals:               true
+
+# ---------------
+# LINE PROPERTIES
+# ---------------
+
+ColumnLimit: 100
+
+DeriveLineEnding: true
+UseCRLF:          false # Deprecated - use LineEnding
+
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 1
+
+# -------------------
+# MACRO FUNCTIONALITY
+# -------------------
+
+AttributeMacros:              []
+ForEachMacros:                []
+IfMacros:                     []
+StatementAttributeLikeMacros: []
+StatementMacros:              []
+TypenameMacros:               []
+WhitespaceSensitiveMacros:    []
+
+MacroBlockBegin: ''
+MacroBlockEnd:   ''
+
+# ------------
+# MISCELANEOUS
+# ------------
+
+DisableFormat:            false
+#InsertNewlineAtEOF:      true # Not supported by clang 15. Handled by format.sh
+InsertTrailingCommas:     None
+QualifierAlignment:       Leave
+SeparateDefinitionBlocks: Always
+
+# ------------------
+# SINGLE-LINE BLOCKS
+# ------------------
+
+AllowShortBlocksOnASingleLine:       Empty
+AllowShortCaseLabelsOnASingleLine:   false
+AllowShortEnumsOnASingleLine:        false
+AllowShortFunctionsOnASingleLine:    Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine:        false
+
+# -------
+# SPACING
+# -------
+
+DerivePointerAlignment:       false
+PointerAlignment:             Right
+SpaceAroundPointerQualifiers: Default
+
+BitFieldColonSpacing:           Both
+SpaceAfterCStyleCast:           true
+SpaceAfterLogicalNot:           false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon:           false
+SpaceBeforeParens:              ControlStatements
+SpaceBeforeSquareBrackets:      false
+SpaceInEmptyBlock:              false
+SpaceInEmptyParentheses:        false
+SpacesInConditionalStatement:   false
+SpacesInCStyleCastParentheses:  false
+SpacesInParentheses:            false
+SpacesInSquareBrackets:         false
+...
