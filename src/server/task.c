@@ -141,7 +141,7 @@ int task_add_program(task_t *task, const program_t *program) {
     return 0;
 }
 
-const program_t *const *task_get_prgrams(const task_t *task, size_t *count) {
+const program_t *const *task_get_programs(const task_t *task, size_t *count) {
     if (!task || !count) {
         errno = EINVAL;
         return NULL;
