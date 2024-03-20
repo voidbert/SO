@@ -29,17 +29,13 @@ typedef struct task task_t;
 /**
  * @brief   Creates a empty task.
  * @details This task isn't valid, and needs to be populated with programs.
- *
- * @param id Unique identifier of the task.
- *
- * @return A new task on success, or `NULL` on allocation failure (`errno = ENOMEM`).
+ * @return  A new task on success, or `NULL` on allocation failure (`errno = ENOMEM`).
  */
-task_t *task_new_empty(size_t id);
+task_t *task_new_empty(void);
 
 /**
  * @brief Creates a new task from the programs that constitute it.
  *
- * @param id       Unique identifier of the task.
  * @param programs Array of programs. Can be `NULL` for this method to have the same behavior as
  *                 ::task_new_empty.
  * @param length   Number of programs in @p programs. Must be `0` if @p programs is NULL.
@@ -51,15 +47,11 @@ task_t *task_new_empty(size_t id);
  * | `EINVAL` | @p programs is `NULL` and @p length is not `0`. |
  * | `ENOMEM` | Allocation failure.                             |
  */
-task_t *task_new_from_programs(size_t id, const program_t *const *programs, size_t length);
+task_t *task_new_from_programs(const program_t *const *programs, size_t length);
 
 /**
- * @brief   Creates a deep copy of a task.
- * @details This serves only the purpose of memory management, as the cloned task will still have
- *          the same identifier.
- *
- * @param task Task to be cloned.
- *
+ * @brief  Creates a deep copy of a task.
+ * @param  task Task to be cloned.
  * @return A copy of @p task on success, NULL on failure (check `errno`).
  *
  * | `errno`  | Cause               |
@@ -76,7 +68,7 @@ task_t *task_clone(const task_t *task);
 void task_free(task_t *task);
 
 /**
- * @brief Checks if two tasks are equal (in content, ignoring identifiers).
+ * @brief Checks if two tasks are equal.
  *
  * @param a First task to compare. Can be `NULL`.
  * @param b Second task to compare. Can be `NULL`.
@@ -100,13 +92,6 @@ int task_equals(const task_t *a, const task_t *b);
  * | `ENOMEM` | Allocation failure.                       |
  */
 int task_add_program(task_t *task, const program_t *program);
-
-/**
- * @brief  Gets the identifier of a task.
- * @param  task Task to get identifier from. Mustn't be `NULL`.
- * @return The identifier of @p task on success, `(size_t) -1` on failure (`errno = EINVAL`).
- */
-size_t task_get_id(const task_t *task);
 
 /**
  * @brief Gets the list of programs in a task.

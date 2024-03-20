@@ -28,8 +28,6 @@
  * @struct task
  * @brief  A single program or pipeline that must be executed.
  *
- * @var task::id
- *     @brief Unique identifier of a task.
  * @var task::programs
  *     @brief Array of programs in the pipeline.
  * @var task::length
@@ -38,7 +36,6 @@
  *     @brief Maximum number of programs in task::argv before reallocation.
  */
 struct task {
-    size_t      id;
     program_t **programs;
     size_t      length;
     size_t      capacity;
@@ -47,11 +44,11 @@ struct task {
 /** @brief Value of task::capacity for newly created empty tasks. */
 #define TASK_INITIAL_CAPACITY 8
 
-task_t *task_new_empty(size_t id) {
-    return task_new_from_programs(id, NULL, 0);
+task_t *task_new_empty(void) {
+    return task_new_from_programs(NULL, 0);
 }
 
-task_t *task_new_from_programs(size_t id, const program_t *const *programs, size_t length) {
+task_t *task_new_from_programs(const program_t *const *programs, size_t length) {
     if (!programs && length != 0) {
         errno = EINVAL;
         return NULL;
@@ -67,7 +64,6 @@ task_t *task_new_from_programs(size_t id, const program_t *const *programs, size
     if (first_power < TASK_INITIAL_CAPACITY)
         first_power = TASK_INITIAL_CAPACITY;
 
-    ret->id       = id;
     ret->length   = length;
     ret->capacity = first_power;
     ret->programs = malloc(sizeof(program_t *) * ret->capacity);
@@ -94,9 +90,7 @@ task_t *task_clone(const task_t *task) {
         return NULL;
     }
 
-    return task_new_from_programs(task->id,
-                                  (const program_t *const *) task->programs,
-                                  task->length);
+    return task_new_from_programs((const program_t *const *) task->programs, task->length);
 }
 
 void task_free(task_t *task) {
@@ -145,15 +139,6 @@ int task_add_program(task_t *task, const program_t *program) {
     task->programs[task->length] = new_program;
     task->length++;
     return 0;
-}
-
-size_t task_get_id(const task_t *task) {
-    if (!task) {
-        errno = EINVAL;
-        return (size_t) -1;
-    }
-
-    return task->id;
 }
 
 const program_t *const *task_get_prgrams(const task_t *task, size_t *count) {

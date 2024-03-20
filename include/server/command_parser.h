@@ -23,8 +23,6 @@
 
 /**
  * @brief Parses a command line.
- *
- * @param id           Identifier of the task to be created.
  * @param command_line Command line to be parsed.
  *
  * @return On success, A task composed of either a single program or a pipeline. On failure, `NULL`
@@ -35,4 +33,4 @@
  * | `EINVAL` | @p command_line is `NULL` or parsing failure. |
  * | `ENOMEM` | Allocation failure.                           |
  */
-task_t *command_parser_parse_task(size_t id, const char *command_line);
+task_t *command_parser_parse_task(const char *command_line);

@@ -239,13 +239,13 @@ command_parser_token_t *__command_parser_token_next(const char **remaining) {
     }
 }
 
-task_t *command_parser_parse_task(size_t id, const char *command_line) {
+task_t *command_parser_parse_task(const char *command_line) {
     if (!command_line) {
         errno = EINVAL;
         return NULL;
     }
 
-    task_t *ret = task_new_empty(id);
+    task_t *ret = task_new_empty();
     if (!ret)
         return NULL; /* errno = ENOMEM guaranteed */
 
