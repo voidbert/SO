@@ -20,9 +20,7 @@
  */
 
 #include <errno.h>
-#include <stdio.h> /* TODO - remove */
 #include <stdlib.h>
-#include <string.h>
 
 #include "server/command_parser.h"
 
@@ -239,27 +237,87 @@ command_parser_token_t *__command_parser_token_next(const char **remaining) {
     }
 }
 
+program_t *command_parser_parse_command(const char *command_line) {
+    task_t *full_task = command_parser_parse_task(command_line);
+    if (!full_task)
+        return NULL; /* Keep errno */
+
+    size_t                  nprograms;
+    const program_t *const *programs = task_get_programs(full_task, &nprograms);
+
+    if (nprograms != 1) {
+        errno = EINVAL; /* Parsing error: contains pipes */
+        task_free(full_task);
+        return NULL;
+    }
+
+    program_t *ret = program_clone(programs[0]);
+    task_free(full_task);
+    return ret;
+}
+
 task_t *command_parser_parse_task(const char *command_line) {
     if (!command_line) {
         errno = EINVAL;
         return NULL;
     }
 
-    task_t *ret = task_new_empty();
-    if (!ret)
-        return NULL; /* errno = ENOMEM guaranteed */
+    task_t                 *ret             = NULL;
+    program_t              *current_program = NULL;
+    command_parser_token_t *token           = NULL;
 
-    errno = 0;
-    command_parser_token_t *token;
-    const char             *remaining = command_line;
+    ret = task_new_empty();
+    if (!ret)
+        goto FAILURE; /* ENOMEM */
+
+    current_program = program_new_empty();
+    if (!current_program)
+        goto FAILURE; /* ENOMEM */
+
+    errno                 = 0;
+    const char *remaining = command_line;
     while ((token = __command_parser_token_next(&remaining))) {
-        fprintf(stderr, "\"%s\"%s\n", token->string, token->is_pipe ? " (pipe)" : "");
+        if (token->is_pipe) {
+            if (program_get_argument_count(current_program) == 0) {
+                errno = EINVAL; /* Parsing error (empty command) */
+                goto FAILURE;
+            }
+
+            if (task_add_program(ret, current_program))
+                goto FAILURE; /* ENOMEM */
+
+            program_free(current_program);
+            current_program = program_new_empty();
+            if (!current_program)
+                goto FAILURE; /* ENOMEM */
+
+        } else if (program_add_argument(current_program, token->string)) {
+            goto FAILURE;
+        }
+
         __command_parser_token_free(token);
     }
 
-    if (errno != 0) {
-        task_free(ret);
-        return NULL;
+    if (errno != 0)
+        goto FAILURE; /* Keep errno from tokenizer */
+
+    if (program_get_argument_count(current_program) == 0) {
+        errno = EINVAL; /* Parsing error (empty command) */
+        goto FAILURE;
     }
+
+    if (task_add_program(ret, current_program))
+        goto FAILURE;
+
+    program_free(current_program);
     return ret;
+
+FAILURE:
+    if (token)
+        __command_parser_token_free(token);
+    if (current_program)
+        program_free(current_program);
+    if (ret)
+        task_free(ret);
+    return NULL;
 }
