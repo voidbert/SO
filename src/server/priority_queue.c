@@ -24,20 +24,43 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define PRIORITY_QUEUE_VALUES_INITIAL_SIZE 50
-
+/**
+ * @struct priority_queue_data
+ * @brief  Stores all the data usefull to a priority queue.
+ *
+ * @var priority_queue_data::values
+ *     @brief Array of pointers to ::tagged_task_t values.
+ * @var priority_queue_data::size
+ *     @brief Number of used cells in ::priority_queue_data::values.
+ * @var priority_queue_data::capcity
+ *     @brief Number of cells in ::priority_queue_data::values.
+ */
 typedef struct priority_queue_data {
     tagged_task_t **values;
     size_t          size;
     size_t          capacity;
 } priority_queue_data_t;
 
+/**
+ * @struct priority_queue
+ * @brief  Defines the behaviour of the priority queue and stores a pointer to its data.
+ *
+ * @var priority_queue::cmp_func
+ *     @brief Method that compares two ::tagged_task_t values.
+ * @var priority_queue::free_func
+ *     @brief Method that frees the memory used by a ::tagged_task_t value in case of
+ *            ::priority_queue_free being called. Can be set to `NULL` if the programmer wishes to
+ *            not free the data inside ::priority_queue_data::values.
+ */
 struct priority_queue {
     priority_queue_compare_function_t cmp_func;
     priority_queue_free_function_t    free_func;
 
     priority_queue_data_t *data;
 };
+
+/** @brief Initial priority_queue_data::capacity for the array priority_queue_data::values. */
+#define PRIORITY_QUEUE_VALUES_INITIAL_SIZE 50
 
 priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
                                      priority_queue_free_function_t    free_func) {
@@ -53,8 +76,10 @@ priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
     new_queue->free_func  = free_func;
 
     priority_queue_data_t *queue_data = malloc(sizeof(priority_queue_data_t));
-    if (!new_queue)
+    if (!new_queue) {
+        free(new_queue);
         return NULL;
+    }
 
     queue_data->values   = malloc(PRIORITY_QUEUE_VALUES_INITIAL_SIZE * sizeof(tagged_task_t *));
     queue_data->size     = 0;
@@ -65,6 +90,7 @@ priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
     return new_queue;
 }
 
+/** @brief Swaps the values from two memory locations */
 void __priority_queue_swap (tagged_task_t *a, tagged_task_t *b) {
 
     tagged_task_t c = *a;
@@ -72,6 +98,13 @@ void __priority_queue_swap (tagged_task_t *a, tagged_task_t *b) {
     *b = c;
 }
 
+/**
+ * @brief   Reorganizes the min-heap to keep its properties after an insertion.
+ * @details Auxiliary method to ::priority_queue_insert.
+ *
+ * @param queue           Queue to be reorganized.
+ * @param placement_index Index of the previously inserted element.
+ */
 void __priority_queue_insert_bubble_up (priority_queue_t *queue,
                                         size_t placement_index) {
 
@@ -104,9 +137,16 @@ int priority_queue_insert(priority_queue_t *queue, tagged_task_t *element) {
     return 0;
 }
 
-void __priority_queue_remove_bubble_down(size_t placement_index, priority_queue_t *queue) {
+/**
+ * @brief   Reorganizes the min-heap to keep its properties after a removal of the top element.
+ * @details Auxiliary method to ::priority_queue_remove_top.
+ *
+ * @param queue Queue to be reorganized.
+ */
+void __priority_queue_remove_bubble_down(priority_queue_t *queue) {
 
     priority_queue_data_t *data = queue->data;
+    size_t placement_index = 0;
     size_t chosen_child, left_child, right_child;
 
     while (2 * placement_index + 1 < data->size) {
@@ -132,15 +172,11 @@ int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element) 
     if (!queue->data->size)
         return 1;
 
-
     queue->data->size--;
-    if (element)
-        *element = queue->data->values[queue->data->size];
-    else
-        return 1;
+    *element = queue->data->values[queue->data->size];
 
     __priority_queue_swap(queue->data->values[queue->data->size], queue->data->values[0]);
-    __priority_queue_remove_bubble_down(0, queue);
+    __priority_queue_remove_bubble_down(queue);
 
     return 0;
 }
