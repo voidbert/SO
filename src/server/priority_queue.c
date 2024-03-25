@@ -19,99 +19,160 @@
  * @brief A priority queue implementation.
  */
 
-/* TODO - do error handling */
-
 #include "server/priority_queue.h"
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-#define PRIORITY_QUEUE_ARRAY_INITIAL_SIZE 50
+#define PRIORITY_QUEUE_VALUES_INITIAL_SIZE 50
 
 typedef struct priority_queue_data {
-    tagged_task_t **array;
+    tagged_task_t **values;
     size_t          size;
     size_t          capacity;
 } priority_queue_data_t;
 
 struct priority_queue {
     priority_queue_compare_function_t cmp_func;
-    priority_queue_clone_function_t   clone_func;
     priority_queue_free_function_t    free_func;
 
     priority_queue_data_t *data;
 };
 
 priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
-                                     priority_queue_clone_function_t   clone_func,
                                      priority_queue_free_function_t    free_func) {
 
+    if (!cmp_func)
+        return NULL;
+
     priority_queue_t *new_queue = malloc(sizeof(priority_queue_t));
+    if (!new_queue)
+        return NULL;
 
     new_queue->cmp_func   = cmp_func;
-    new_queue->clone_func = clone_func;
     new_queue->free_func  = free_func;
 
     priority_queue_data_t *queue_data = malloc(sizeof(priority_queue_data_t));
+    if (!new_queue)
+        return NULL;
 
-    queue_data->array    = malloc(PRIORITY_QUEUE_ARRAY_INITIAL_SIZE * sizeof(tagged_task_t *));
+    queue_data->values   = malloc(PRIORITY_QUEUE_VALUES_INITIAL_SIZE * sizeof(tagged_task_t *));
     queue_data->size     = 0;
-    queue_data->capacity = PRIORITY_QUEUE_ARRAY_INITIAL_SIZE;
+    queue_data->capacity = PRIORITY_QUEUE_VALUES_INITIAL_SIZE;
+
+    new_queue->data = queue_data;
 
     return new_queue;
+}
+
+void __priority_queue_swap (tagged_task_t *a, tagged_task_t *b) {
+
+    tagged_task_t c = *a;
+    *a = *b;
+    *b = c;
+}
+
+void __priority_queue_insert_bubble_up (priority_queue_t *queue,
+                                        size_t placement_index) {
+
+    priority_queue_data_t *data = queue->data;
+    size_t parent_index = ((ssize_t) placement_index - 1) / 2;
+
+    while (queue->cmp_func(data->values[placement_index], data->values[parent_index]) < 0) {
+        __priority_queue_swap(data->values[placement_index], data->values[parent_index]);
+
+        placement_index = parent_index;
+        parent_index    = ((ssize_t) placement_index - 1) / 2;
+    }
+}
+
+int priority_queue_insert(priority_queue_t *queue, tagged_task_t *element) {
+
+    priority_queue_data_t *data = queue->data;
+
+    if (data->size == data->capacity) {
+        data->capacity += PRIORITY_QUEUE_VALUES_INITIAL_SIZE;
+        data->values = realloc(data->values, data->capacity * sizeof(tagged_task_t *));
+        if (!data->values)
+            return 1;
+    }
+
+    data->values[data->size] = element;
+    __priority_queue_insert_bubble_up(queue, data->size);
+    data->size++;
+
+    return 0;
+}
+
+void __priority_queue_remove_bubble_down(size_t placement_index, priority_queue_t *queue) {
+
+    priority_queue_data_t *data = queue->data;
+    size_t chosen_child, left_child, right_child;
+
+    while (2 * placement_index + 1 < data->size) {
+        left_child  = 2 * placement_index + 1;
+        right_child = left_child + 1;
+
+        if (right_child < data->size &&
+            queue->cmp_func(data->values[right_child], data->values[left_child]) < 0)
+            chosen_child = right_child;
+        else
+            chosen_child = left_child;
+
+        if (queue->cmp_func(data->values[placement_index], data->values[chosen_child]) < 0) break;
+
+        __priority_queue_swap(data->values[placement_index], data->values[chosen_child]);
+        placement_index = chosen_child;
+    }
+
+}
+
+int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element) {
+
+    if (!queue->data->size)
+        return 1;
+
+
+    queue->data->size--;
+    if (element)
+        *element = queue->data->values[queue->data->size];
+    else
+        return 1;
+
+    __priority_queue_swap(queue->data->values[queue->data->size], queue->data->values[0]);
+    __priority_queue_remove_bubble_down(0, queue);
+
+    return 0;
+}
+
+size_t priority_queue_element_count(priority_queue_t *queue) {
+    return queue->data->size;
 }
 
 void priority_queue_free(priority_queue_t *queue) {
 
     if (!queue->free_func) {
-        free(queue->data->array);
+        free(queue->data->values);
     } else {
         for (size_t i = 0; i < queue->data->size; ++i)
-            queue->free_func(queue->data->array[i]);
+            queue->free_func(queue->data->values[i]);
 
-        free(queue->data->array);
+        free(queue->data->values);
     }
 
     free(queue->data);
     free(queue);
 }
 
-/* TODO - Do swap from pointers only */
-
-void __priority_queue_swap(tagged_task_t *array, size_t child, size_t parent) {
-
-    tagged_task_t *temp = array[parent];
-    array[parent]       = array[child];
-    array[child]        = temp;
-}
-
-/* TODO - Refactor to an iteractive method (AlgC files) */
-
-void __priority_queue_insert_bubble_up(priority_queue_data_t *data, size_t index) {
-
-    size_t parent = (index - 1) / 2;
-
-    if (data->array[parent] > data->array[index]) {
-        __priority_queue_swap(data->array, index, parent);
-        __priority_queue_insert_bubble_up(data, parent);
-    }
-}
-
-void priority_queue_insert(priority_queue_t *queue, tagged_task_t *element) {
+/* TODO - Remove */
+void print_minheap(priority_queue_t *queue) {
 
     priority_queue_data_t *data = queue->data;
 
-    if (data->size == data->capacity) {
-        data->capacity += PRIORITY_QUEUE_ARRAY_INITIAL_SIZE;
-        data->array = realloc(data->array, data->capacity * sizeof(tagged_task_t *));
+    for (size_t i = 0; i < data->size; ++i) {
+        printf("[%d]", (data->values[i])->i);
+        if (i == 0 || i == 2 || i == 6 || i == 14 || i == 30)
+            printf("\n");
     }
-
-    data->array[data->size] = element;
-    __priority_queue_insert_bubble_up(data, data->size);
-    data->size++;
-}
-
-/* TODO - Remove top (Algc files) */
-
-size_t priority_queue_element_count(priority_queue_t *queue) {
-    return queue->data->size;
+    printf("\n");
 }

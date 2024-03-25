@@ -30,22 +30,23 @@ typedef struct tagged_task {
 
 typedef int (*priority_queue_compare_function_t)(tagged_task_t *a, tagged_task_t *b);
 
-typedef int (*priority_queue_clone_function_t)(tagged_task_t *element);
-
 typedef void (*priority_queue_free_function_t)(tagged_task_t *element);
 
 typedef struct priority_queue priority_queue_t;
 
 priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
-                                     priority_queue_clone_function_t   clone_func,
                                      priority_queue_free_function_t    free_func);
 
 void priority_queue_free(priority_queue_t *queue);
 
-void priority_queue_insert(priority_queue_t *queue, tagged_task_t *element);
+int priority_queue_insert(priority_queue_t *queue, tagged_task_t *element);
 
 int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element);
 
 size_t priority_queue_element_count(priority_queue_t *queue);
+
+/* TODO - Remove */
+
+void print_minheap(priority_queue_t *data);
 
 #endif
