@@ -24,6 +24,8 @@
 
 #include <stddef.h>
 
+typedef struct tagged_task tagged_task_t; /* TODO - Remove when its properly implemented */
+
 /**
  * @brief   Type of the function called for comparing two ::tagged_task_t's.
  * @details Used for reorganizing the heap after an insertion or deletion.
