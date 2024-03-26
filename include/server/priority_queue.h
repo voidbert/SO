@@ -29,19 +29,30 @@ typedef struct tagged_task {
 } tagged_task_t; /* TODO - remove */
 
 /**
- * @brief   Type of the method called for comparing two ::tagged_task_t values.
+ * @brief   Type of the function called for comparing two ::tagged_task_t's.
  * @details Used for reorganizing the heap after an insertion or deletion.
  *
  * @param a Value to be compared with @p b.
  * @param b Value to be compared with @p a.
  *
- * @return Return a negative value if @p a is inferior to @p b, 0 if they are equal, and a positive
+ * @return A negative value if @p a is inferior to @p b, 0 if they are equal, and a positive
  *         value if @p a is superior to @p b.
  */
 typedef int (*priority_queue_compare_function_t)(tagged_task_t *a, tagged_task_t *b);
 
 /**
- * @brief   Type of the method called to free a ::tagged_task_t value.
+ * @brief   Type of the function called to clone a ::tagged_task_t.
+ * @details Used for cloning the elements inside a priority queue when ::priority_queue_clone is
+ *          called.
+ *
+ * @param element Value to be cloned.
+ *
+ * @return A ::tagged_task_t on success or `NULL` on allocation failure.
+ */
+typedef tagged_task_t *(*priority_queue_clone_function_t)(tagged_task_t *element);
+
+/**
+ * @brief   Type of the function called to free a ::tagged_task_t value.
  * @details Used when freeing a ::priority_queue_t queue.
  *
  * @param element Element to be freed.
@@ -54,21 +65,26 @@ typedef struct priority_queue priority_queue_t;
 /**
  * @brief   Creates a new priority queue.
  * @details For parameter description check the description for each of the parameters types.
- *          A priority queue can be created without a @p free_func if `NULL` is passed in its place.
- *          If so is the case, when ::priority_queue_free is called the ::tagged_task_t's stored
- *          inside the queue will not be freed.
+ *          A priority queue can be created without a @p free_func if `NULL` is passed in its place,
+ *          and the same applies to the parameter @p clone_func. If a `NULL` is passed as the
+ *          @p free_func, when ::priority_queue_free is called the ::tagged_task_t's stored inside
+ *          the queue will not be freed. If `NULL` is passed as the @p clone_function, when
+ *          ::priority_queue_clone is called the resulting clone will be shallow.
  *
  * @return A pointer to a new ::priority_queue_t, or `NULL` on failure.
  */
 priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
+                                     priority_queue_clone_function_t   clone_func,
                                      priority_queue_free_function_t    free_func);
 
 /**
- * @brief Frees the memory used by a priority queue.
+ * @brief   Clones a priority queue.
+ * @details If the @p queue was not created with a ::priority_queue_clone_fucntion_t set, this
+ *          method will only produce a shallow clone.
  *
- * @param queue Queue to be freed.
+ * @return A pointer to a new ::priority_queue_t, or `NULL` on failure.
  */
-void priority_queue_free(priority_queue_t *queue);
+priority_queue_t *priority_queue_clone(priority_queue_t *queue);
 
 /**
  * @brief Inserts a new ::tagged_task_t into a priority queue.
@@ -98,6 +114,15 @@ int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element);
  * @return The number of elements stored in the @p queue.
  */
 size_t priority_queue_element_count(priority_queue_t *queue);
+
+/**
+ * @brief   Frees the memory used by a priority queue.
+ * @details If the @p queue was not created with a ::priority_queue_free_function_t set, this method
+ *          will not free the elements inside the priority queue.
+ *
+ * @param queue Queue to be freed.
+ */
+void priority_queue_free(priority_queue_t *queue);
 
 /* TODO - Remove */
 

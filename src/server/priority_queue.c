@@ -54,6 +54,7 @@ typedef struct priority_queue_data {
  */
 struct priority_queue {
     priority_queue_compare_function_t cmp_func;
+    priority_queue_clone_function_t   clone_func;
     priority_queue_free_function_t    free_func;
 
     priority_queue_data_t *data;
@@ -63,6 +64,7 @@ struct priority_queue {
 #define PRIORITY_QUEUE_VALUES_INITIAL_SIZE 50
 
 priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
+                                     priority_queue_clone_function_t   clone_func,
                                      priority_queue_free_function_t    free_func) {
 
     if (!cmp_func)
@@ -73,6 +75,7 @@ priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
         return NULL;
 
     new_queue->cmp_func   = cmp_func;
+    new_queue->clone_func = clone_func;
     new_queue->free_func  = free_func;
 
     priority_queue_data_t *queue_data = malloc(sizeof(priority_queue_data_t));
@@ -90,12 +93,52 @@ priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
     return new_queue;
 }
 
-/** @brief Swaps the values from two memory locations */
-void __priority_queue_swap (tagged_task_t *a, tagged_task_t *b) {
+priority_queue_t *priority_queue_clone(priority_queue_t *queue) {
 
-    tagged_task_t c = *a;
-    *a = *b;
-    *b = c;
+    priority_queue_t *queue_clone = malloc(sizeof(priority_queue_t));
+    if (!queue_clone)
+        return NULL;
+
+    queue_clone->cmp_func   = queue->cmp_func;
+    queue_clone->clone_func = queue->clone_func;
+    queue_clone->free_func  = queue->free_func;
+
+    priority_queue_data_t *queue_clone_data = malloc(sizeof(priority_queue_data_t));
+    if (!queue_clone_data) {
+        free(queue_clone);
+        return NULL;
+    }
+
+    queue_clone_data->values   = malloc(queue->data->capacity * sizeof(tagged_task_t *));
+    queue_clone_data->size     = queue->data->size;
+    queue_clone_data->capacity = queue->data->capacity;
+
+    if (queue->clone_func)
+        for (size_t i = 0; i < queue->data->size; ++i) {
+            queue_clone_data->values[i] = queue->clone_func(queue->data->values[i]);
+
+            if(!queue_clone_data->values[i]) {
+                for (size_t j = 0; j < i; ++j)
+                    queue_clone->free_func(queue_clone_data->values[j]);
+
+                free(queue_clone_data->values);
+                free(queue_clone_data);
+                free(queue_clone);
+                return NULL;
+            }
+        }
+
+    queue_clone->data = queue_clone_data;
+
+    return queue_clone;
+}
+
+/** @brief Swaps the values from two memory locations */
+void __priority_queue_swap (tagged_task_t **values, size_t index_a, size_t index_b) {
+
+    tagged_task_t *temp = values[index_a];
+    values[index_a]    = values[index_b];
+    values[index_b]    = temp;
 }
 
 /**
@@ -112,7 +155,7 @@ void __priority_queue_insert_bubble_up (priority_queue_t *queue,
     size_t parent_index = ((ssize_t) placement_index - 1) / 2;
 
     while (queue->cmp_func(data->values[placement_index], data->values[parent_index]) < 0) {
-        __priority_queue_swap(data->values[placement_index], data->values[parent_index]);
+        __priority_queue_swap(data->values, placement_index, parent_index);
 
         placement_index = parent_index;
         parent_index    = ((ssize_t) placement_index - 1) / 2;
@@ -161,7 +204,7 @@ void __priority_queue_remove_bubble_down(priority_queue_t *queue) {
 
         if (queue->cmp_func(data->values[placement_index], data->values[chosen_child]) < 0) break;
 
-        __priority_queue_swap(data->values[placement_index], data->values[chosen_child]);
+        __priority_queue_swap(data->values, placement_index, chosen_child);
         placement_index = chosen_child;
     }
 
@@ -173,9 +216,9 @@ int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element) 
         return 1;
 
     queue->data->size--;
-    *element = queue->data->values[queue->data->size];
+    *element = queue->data->values[0];
 
-    __priority_queue_swap(queue->data->values[queue->data->size], queue->data->values[0]);
+    __priority_queue_swap(queue->data->values, queue->data->size, 0);
     __priority_queue_remove_bubble_down(queue);
 
     return 0;
