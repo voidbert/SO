@@ -21,8 +21,8 @@
 
 #include "server/priority_queue.h"
 #include <stddef.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /**
  * @struct priority_queue_data
@@ -103,6 +103,9 @@ priority_queue_t *priority_queue_clone(priority_queue_t *queue) {
     queue_clone->clone_func = queue->clone_func;
     queue_clone->free_func  = queue->free_func;
 
+    if (!queue_clone->free_func)
+        return NULL; /* A clone needs a ::priority_queue_free_function_t to free its elements */
+
     priority_queue_data_t *queue_clone_data = malloc(sizeof(priority_queue_data_t));
     if (!queue_clone_data) {
         free(queue_clone);
@@ -117,7 +120,7 @@ priority_queue_t *priority_queue_clone(priority_queue_t *queue) {
         for (size_t i = 0; i < queue->data->size; ++i) {
             queue_clone_data->values[i] = queue->clone_func(queue->data->values[i]);
 
-            if(!queue_clone_data->values[i]) {
+            if (!queue_clone_data->values[i]) {
                 for (size_t j = 0; j < i; ++j)
                     queue_clone->free_func(queue_clone_data->values[j]);
 
@@ -133,12 +136,17 @@ priority_queue_t *priority_queue_clone(priority_queue_t *queue) {
     return queue_clone;
 }
 
-/** @brief Swaps the values from two memory locations */
-void __priority_queue_swap (tagged_task_t **values, size_t index_a, size_t index_b) {
+/**
+ * @brief Swaps the values from two memory locations.
+ *
+ * @param a Memory location to store the value pointed by @p b.
+ * @param b Memory location to store the value pointed by @p a.
+ */
+void __priority_queue_swap(tagged_task_t **a, tagged_task_t **b) {
 
-    tagged_task_t *temp = values[index_a];
-    values[index_a]    = values[index_b];
-    values[index_b]    = temp;
+    tagged_task_t *temp = *a;
+    *a                  = *b;
+    *b                  = temp;
 }
 
 /**
@@ -148,14 +156,13 @@ void __priority_queue_swap (tagged_task_t **values, size_t index_a, size_t index
  * @param queue           Queue to be reorganized.
  * @param placement_index Index of the previously inserted element.
  */
-void __priority_queue_insert_bubble_up (priority_queue_t *queue,
-                                        size_t placement_index) {
+void __priority_queue_insert_bubble_up(priority_queue_t *queue, size_t placement_index) {
 
-    priority_queue_data_t *data = queue->data;
-    size_t parent_index = ((ssize_t) placement_index - 1) / 2;
+    priority_queue_data_t *data         = queue->data;
+    size_t                 parent_index = ((ssize_t) placement_index - 1) / 2;
 
     while (queue->cmp_func(data->values[placement_index], data->values[parent_index]) < 0) {
-        __priority_queue_swap(data->values, placement_index, parent_index);
+        __priority_queue_swap(data->values + placement_index, data->values + parent_index);
 
         placement_index = parent_index;
         parent_index    = ((ssize_t) placement_index - 1) / 2;
@@ -188,9 +195,9 @@ int priority_queue_insert(priority_queue_t *queue, tagged_task_t *element) {
  */
 void __priority_queue_remove_bubble_down(priority_queue_t *queue) {
 
-    priority_queue_data_t *data = queue->data;
-    size_t placement_index = 0;
-    size_t chosen_child, left_child, right_child;
+    priority_queue_data_t *data            = queue->data;
+    size_t                 placement_index = 0;
+    size_t                 chosen_child, left_child, right_child;
 
     while (2 * placement_index + 1 < data->size) {
         left_child  = 2 * placement_index + 1;
@@ -202,12 +209,12 @@ void __priority_queue_remove_bubble_down(priority_queue_t *queue) {
         else
             chosen_child = left_child;
 
-        if (queue->cmp_func(data->values[placement_index], data->values[chosen_child]) < 0) break;
+        if (queue->cmp_func(data->values[placement_index], data->values[chosen_child]) < 0)
+            break;
 
-        __priority_queue_swap(data->values, placement_index, chosen_child);
+        __priority_queue_swap(data->values + placement_index, data->values + chosen_child);
         placement_index = chosen_child;
     }
-
 }
 
 int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element) {
@@ -218,7 +225,7 @@ int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element) 
     queue->data->size--;
     *element = queue->data->values[0];
 
-    __priority_queue_swap(queue->data->values, queue->data->size, 0);
+    __priority_queue_swap(queue->data->values + queue->data->size, queue->data->values);
     __priority_queue_remove_bubble_down(queue);
 
     return 0;
@@ -241,17 +248,4 @@ void priority_queue_free(priority_queue_t *queue) {
 
     free(queue->data);
     free(queue);
-}
-
-/* TODO - Remove */
-void print_minheap(priority_queue_t *queue) {
-
-    priority_queue_data_t *data = queue->data;
-
-    for (size_t i = 0; i < data->size; ++i) {
-        printf("[%d]", (data->values[i])->i);
-        if (i == 0 || i == 2 || i == 6 || i == 14 || i == 30)
-            printf("\n");
-    }
-    printf("\n");
 }

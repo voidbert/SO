@@ -24,10 +24,6 @@
 
 #include <stddef.h>
 
-typedef struct tagged_task {
-    int i;
-} tagged_task_t; /* TODO - remove */
-
 /**
  * @brief   Type of the function called for comparing two ::tagged_task_t's.
  * @details Used for reorganizing the heap after an insertion or deletion.
@@ -63,10 +59,10 @@ typedef void (*priority_queue_free_function_t)(tagged_task_t *element);
 typedef struct priority_queue priority_queue_t;
 
 /**
- * @brief   Creates a new priority queue.
+ * @brief   Creates a new priority queue of unique pointers to ::tagged_task_t's.
  * @details For parameter description check the description for each of the parameters types.
  *          A priority queue can be created without a @p free_func if `NULL` is passed in its place,
- *          and the same applies to the parameter @p clone_func. If a `NULL` is passed as the
+ *          the same applies to the parameter @p clone_func. If a `NULL` is passed as the
  *          @p free_func, when ::priority_queue_free is called the ::tagged_task_t's stored inside
  *          the queue will not be freed. If `NULL` is passed as the @p clone_function, when
  *          ::priority_queue_clone is called the resulting clone will be shallow.
@@ -80,14 +76,22 @@ priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
 /**
  * @brief   Clones a priority queue.
  * @details If the @p queue was not created with a ::priority_queue_clone_fucntion_t set, this
- *          method will only produce a shallow clone.
+ *          method will only produce a shallow clone. This method will not work if the original
+ *          @p queue was created without a ::priority_queue_free_function_t set, as it owns the
+ *          individual elements clones, and needs to free them later when ::priority_queue_free is
+ *          called.
+ *
+ * @param queue Priority queue to be cloned.
  *
  * @return A pointer to a new ::priority_queue_t, or `NULL` on failure.
  */
 priority_queue_t *priority_queue_clone(priority_queue_t *queue);
 
 /**
- * @brief Inserts a new ::tagged_task_t into a priority queue.
+ * @brief   Inserts a new, and unique, ::tagged_task_t into a priority queue.
+ * @details This method doesn't check if the @p element already exists in the queue. If two elements
+ *          have the same adress and ::priority_queue_free is called, it may lead to an invalid
+ *          free.
  *
  * @param queue   Priority queue to insert the @p element on.
  * @param element Element to be inserted in the @p queue.
@@ -123,9 +127,5 @@ size_t priority_queue_element_count(priority_queue_t *queue);
  * @param queue Queue to be freed.
  */
 void priority_queue_free(priority_queue_t *queue);
-
-/* TODO - Remove */
-
-void print_minheap(priority_queue_t *data);
 
 #endif
