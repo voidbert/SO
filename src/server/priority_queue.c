@@ -47,10 +47,12 @@ typedef struct priority_queue_data {
  *
  * @var priority_queue::cmp_func
  *     @brief Method that compares two ::tagged_task_t values.
+ * @var priority_queue::clone_func
+ *     @brief Method used to clone the elements inside the priority queue when
+ *            ::priority_queue_clone is called. Can be set to `NULL`.
  * @var priority_queue::free_func
  *     @brief Method that frees the memory used by a ::tagged_task_t value in case of
- *            ::priority_queue_free being called. Can be set to `NULL` if the programmer wishes to
- *            not free the data inside ::priority_queue_data::values.
+ *            ::priority_queue_free being called. Can be set to `NULL`.
  */
 struct priority_queue {
     priority_queue_compare_function_t cmp_func;
