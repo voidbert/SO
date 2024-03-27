@@ -131,8 +131,8 @@ define Doxyfile
 endef
 export Doxyfile
 
-$(DOCSDIR): $(SOURCES) $(HEADERS) $(THEMES)
-	echo "$$Doxyfile" | doxygen -
+$(DOCSDIR): $(SERVER_SOURCES) $(CLIENT_SOURCES) $(SERVER_HEADERS) $(CLIENT_HEADERS) $(THEMES)
+	echo "$$Doxyfile" | doxygen - 1> /dev/null
 	@touch $(DOCSDIR) # Update "last updated" time to now
 
 .PHONY: clean
