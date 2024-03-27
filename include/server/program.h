@@ -19,6 +19,9 @@
  * @brief A single program that must be executed (may be part of a pipeline).
  */
 
+#ifndef PROGRAM_H
+#define PROGRAM_H
+
 #include <sys/types.h>
 
 /** @brief A single program that must be executed (may be part of a pipeline). */
@@ -107,3 +110,5 @@ const char *const *program_get_arguments(const program_t *program);
  *         failure (`errno = EINVAL`).
  */
 ssize_t program_get_argument_count(const program_t *program);
+
+#endif

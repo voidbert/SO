@@ -19,6 +19,9 @@
  * @brief A parser of command lines, be them single programs or pipelines.
  */
 
+#ifndef COMMAND_PARSER_H
+#define COMMAND_PARSER_H
+
 #include <server/task.h>
 
 /**
@@ -47,3 +50,5 @@ program_t *command_parser_parse_command(const char *command_line);
  * | `ENOMEM` | Allocation failure.                           |
  */
 task_t *command_parser_parse_task(const char *command_line);
+
+#endif
