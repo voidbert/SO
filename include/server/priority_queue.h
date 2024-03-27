@@ -27,7 +27,9 @@
 /* TODO - Remove when its properly implemented */
 typedef struct tagged_task tagged_task_t;
 #define tagged_task_clone(task) (task)
-#define tagged_task_free(task) do {} while (0);
+#define tagged_task_free(task)                                                                     \
+    do {                                                                                           \
+    } while (0);
 
 /**
  * @brief   Type of the function called for comparing two ::tagged_task_t's.
