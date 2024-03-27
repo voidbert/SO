@@ -16,7 +16,7 @@
 
 /**
  * @file  priority_queue.h
- * @brief A priority queue.
+ * @brief A priority queue for tasks.
  */
 
 #ifndef PRIORITY_QUEUE
@@ -24,7 +24,10 @@
 
 #include <stddef.h>
 
-typedef struct tagged_task tagged_task_t; /* TODO - Remove when its properly implemented */
+/* TODO - Remove when its properly implemented */
+typedef struct tagged_task tagged_task_t;
+#define tagged_task_clone(task) (task)
+#define tagged_task_free(task) do {} while (0);
 
 /**
  * @brief   Type of the function called for comparing two ::tagged_task_t's.
@@ -36,96 +39,73 @@ typedef struct tagged_task tagged_task_t; /* TODO - Remove when its properly imp
  * @return A negative value if @p a is inferior to @p b, 0 if they are equal, and a positive
  *         value if @p a is superior to @p b.
  */
-typedef int (*priority_queue_compare_function_t)(tagged_task_t *a, tagged_task_t *b);
+typedef int (*priority_queue_compare_function_t)(const tagged_task_t *a, const tagged_task_t *b);
 
-/**
- * @brief   Type of the function called to clone a ::tagged_task_t.
- * @details Used for cloning the elements inside a priority queue when ::priority_queue_clone is
- *          called.
- *
- * @param element Value to be cloned.
- *
- * @return A ::tagged_task_t on success or `NULL` on allocation failure.
- */
-typedef tagged_task_t *(*priority_queue_clone_function_t)(tagged_task_t *element);
-
-/**
- * @brief   Type of the function called to free a ::tagged_task_t value.
- * @details Used when freeing a ::priority_queue_t queue.
- *
- * @param element Element to be freed.
- */
-typedef void (*priority_queue_free_function_t)(tagged_task_t *element);
-
-/** @brief A definition of a queue. */
+/** @brief A priority queue for tasks. */
 typedef struct priority_queue priority_queue_t;
 
 /**
- * @brief   Creates a new priority queue of unique pointers to ::tagged_task_t's.
- * @details For parameter description check the description for each of the parameters types.
- *          A priority queue can be created without a @p free_func if `NULL` is passed in its place,
- *          the same applies to the parameter @p clone_func. If a `NULL` is passed as the
- *          @p free_func, when ::priority_queue_free is called the ::tagged_task_t's stored inside
- *          the queue will not be freed. If `NULL` is passed as the @p clone_function, when
- *          ::priority_queue_clone is called the resulting clone will be shallow.
- *
+ * @brief  Creates an empty priority queue of ::tagged_task_t's.
+ * @param  cmp_func Method called two compare two tasks, to order them in the queue.
  * @return A pointer to a new ::priority_queue_t, or `NULL` on failure.
+ *
+ * | `errno`  | Cause                  |
+ * | -------- | ---------------------- |
+ * | `EINVAL` | @p cmp_func is `NULL`. |
+ * | `ENOMEM` | Allocation failure.    |
  */
-priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func,
-                                     priority_queue_clone_function_t   clone_func,
-                                     priority_queue_free_function_t    free_func);
+priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func);
 
 /**
- * @brief   Clones a priority queue.
- * @details If the @p queue was not created with a ::priority_queue_clone_fucntion_t set, this
- *          method will only produce a shallow clone. This method will not work if the original
- *          @p queue was created without a ::priority_queue_free_function_t set, as it owns the
- *          individual elements clones, and needs to free them later when ::priority_queue_free is
- *          called.
- *
+ * @brief Clones a priority queue.
  * @param queue Priority queue to be cloned.
- *
  * @return A pointer to a new ::priority_queue_t, or `NULL` on failure.
+ *
+ * | `errno`  | Cause               |
+ * | -------- | ------------------- |
+ * | `EINVAL` | @p queue is `NULL`. |
+ * | `ENOMEM` | Allocation failure. |
  */
-priority_queue_t *priority_queue_clone(priority_queue_t *queue);
+priority_queue_t *priority_queue_clone(const priority_queue_t *queue);
 
 /**
- * @brief   Inserts a new, and unique, ::tagged_task_t into a priority queue.
- * @details This method doesn't check if the @p element already exists in the queue. If two elements
- *          have the same adress and ::priority_queue_free is called, it may lead to an invalid
- *          free.
+ * @brief Inserts a new ::tagged_task_t into a priority queue.
  *
- * @param queue   Priority queue to insert the @p element on.
- * @param element Element to be inserted in the @p queue.
+ * @param queue   Priority queue to insert @p element in. Musn't be `NULL`.
+ * @param element Element to be inserted in @p queue. Will be cloned before insertion.
+ *                Musn't be `NULL`.
  *
- * @return 0 on success or 1 on failure.
+ * @retval 0 Success.
+ * @retval 1 Failure (see `errno` below).
+ *
+ * | `errno`  | Cause                             |
+ * | -------- | --------------------------------- |
+ * | `EINVAL` | @p queue or @p element is `NULL`. |
+ * | `ENOMEM` | Allocation failure.               |
  */
 int priority_queue_insert(priority_queue_t *queue, tagged_task_t *element);
 
 /**
  * @brief Removes the top element from a priority queue.
  *
- * @param queue   Priority queue to take the top element from.
+ * @param queue   Priority queue to take the top element from. Musn't be `NULL` or empty.
  * @param element Used to store the removed element.
  *
- * @return 0 on success or 1 on failure. This method fails when the queue has no elements.
+ * @return The topmost element when successful, `NULL` on failure (`errno = EINVAL` due to `NULL` or
+ *         empty @p queue). Ownership of the returned task is passed to the caller.
  */
-int priority_queue_remove_top(priority_queue_t *queue, tagged_task_t **element);
+tagged_task_t *priority_queue_remove_top(priority_queue_t *queue);
 
 /**
- * @brief Counts the number of elements in a priority queue.
- *
- * @param queue Priority queue with elements to be counted.
- *
- * @return The number of elements stored in the @p queue.
+ * @brief Returns the number of elements in a priority queue.
+ * @param queue Priority queue to have its number of elements returned. Musn't be `NULL`.
+ * @return The number of elements stored in the @p queue, or `(size_t) -1` on failure
+ *         (`errno = EINVAL`).
  */
-size_t priority_queue_element_count(priority_queue_t *queue);
+size_t priority_queue_element_count(const priority_queue_t *queue);
 
 /**
- * @brief   Frees the memory used by a priority queue.
- * @details If the @p queue was not created with a ::priority_queue_free_function_t set, this method
- *          will not free the elements inside the priority queue.
- *
+ * @brief Frees the memory used by a priority queue.
  * @param queue Queue to be freed.
  */
 void priority_queue_free(priority_queue_t *queue);
