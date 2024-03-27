@@ -60,6 +60,8 @@ else ifneq (, $(filter install, $(MAKECMDGOALS)))
 	INCLUDE_DEPENDS = Y
 else ifneq (, $(filter server, $(MAKECMDGOALS)))
 	INCLUDE_DEPENDS = Y
+else ifneq (, $(filter orchestrator, $(MAKECMDGOALS)))
+	INCLUDE_DEPENDS = Y
 else ifneq (, $(filter client, $(MAKECMDGOALS)))
 	INCLUDE_DEPENDS = Y
 else
@@ -68,7 +70,8 @@ endif
 
 default: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)
 all: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME) $(DOCSDIR)
-server: $(BUILDDIR)/$(SERVER_EXENAME) # TODO - confirm if it's server or orchestrator
+server: $(BUILDDIR)/$(SERVER_EXENAME)
+orchestrator: $(BUILDDIR)/$(SERVER_EXENAME)
 client: $(BUILDDIR)/$(CLIENT_EXENAME)
 
 ifeq (Y, $(INCLUDE_DEPENDS))
