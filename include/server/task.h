@@ -19,6 +19,9 @@
  * @brief A single program or pipeline that must be executed.
  */
 
+#ifndef TASK_H
+#define TASK_H
+
 #include <sys/types.h>
 
 #include "server/program.h"
@@ -103,3 +106,5 @@ int task_add_program(task_t *task, const program_t *program);
  * @return An array of programs, or `NULL` on failure (`errno = EINVAL`).
  */
 const program_t *const *task_get_programs(const task_t *task, size_t *count);
+
+#endif
