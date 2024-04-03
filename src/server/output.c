@@ -39,11 +39,12 @@ void output_create_task_time_file(void) {
 }
 
 void output_create_stdout_file(void) {
-    int fd = open(OUTPUT_STDOUT_FILE, O_CREAT, 0644);
+    int fd = open(OUTPUT_STDOUT_FILE, O_CREAT | O_WRONLY, 0644);
     if (fd < 0) {
         return;
     }
 
+    ftruncate(fd, 0);
     close(fd);
 }
 
@@ -109,5 +110,91 @@ void output_write_task_time(const tagged_task_t *task) {
     }
 
     write(fd, time_str, strlen(time_str));
+    close(fd);
+}
+
+void output_read_task_time_by_id(int id) {
+    int fd = open(OUTPUT_TASK_TIME_FILE, O_RDONLY);
+    if (fd < 0) {
+        return;
+    }
+
+    char c;
+    int  line = 0;
+    while (read(fd, &c, 1) > 0) {
+        if (c == '\n') {
+            line++;
+        }
+
+        if (line == id) {
+            while (read(fd, &c, 1) > 0 && c != '\n') {
+                write(STDOUT_FILENO, &c, 1);
+            }
+            break;
+        }
+    }
+
+    close(fd);
+}
+
+void output_read_task_times(void) {
+    int fd = open(OUTPUT_TASK_TIME_FILE, O_RDONLY);
+    if (fd < 0) {
+        return;
+    }
+
+    char c;
+    while (read(fd, &c, 1) > 0) {
+        write(STDOUT_FILENO, &c, 1);
+    }
+
+    close(fd);
+}
+
+void output_write_stdout(char *output) {
+    int fd = open(OUTPUT_STDOUT_FILE, O_WRONLY | O_APPEND, 0644);
+    if (fd < 0) {
+        return;
+    }
+
+    write(fd, output, strlen(output));
+    close(fd);
+}
+
+void output_read_stdout_by_id(int id) {
+    int fd = open(OUTPUT_STDOUT_FILE, O_RDONLY);
+    if (fd < 0) {
+        return;
+    }
+
+    char c;
+    int  line = 0;
+    while (read(fd, &c, 1) > 0) {
+        if (c == '\n') {
+            line++;
+        }
+
+        if (line == id) {
+            while (read(fd, &c, 1) > 0 && c != '\n') {
+                write(STDOUT_FILENO, &c, 1);
+            }
+            break;
+        }
+    }
+
+    close(fd);
+}
+
+void output_read_stdout(void) {
+    int fd = open(OUTPUT_STDOUT_FILE, O_RDONLY);
+    if (fd < 0) {
+        return;
+    }
+
+    char c;
+    while (read(fd, &c, 1) > 0) {
+        write(STDOUT_FILENO, &c, 1);
+    }
+
     close(fd);
 }
