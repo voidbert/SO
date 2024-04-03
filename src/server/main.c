@@ -19,6 +19,8 @@
  * @brief Contains the entry point to the server program.
  */
 
+#include <server/output.h>
+#include <server/tagged_task.h>
 #include <stdio.h>
 
 /**
@@ -27,6 +29,19 @@
  * @retval 1 Insuccess
  */
 int main(void) {
+    output_create_task_time_file();
+
+    tagged_task_t *task = tagged_task_new("echo Hello, world!", 1);
+    tagged_task_set_time(task,
+                         TAGGED_TASK_TIME_ARRIVED,
+                         &(struct timespec){.tv_sec = 0, .tv_nsec = 0});
+    tagged_task_set_time(task,
+                         TAGGED_TASK_TIME_COMPLETED,
+                         &(struct timespec){.tv_sec = 1, .tv_nsec = 0});
+    output_write_task_time(task);
+
+    output_read_task_times();
+
     puts("Server says hello!");
     return 0;
 }

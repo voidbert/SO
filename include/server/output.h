@@ -23,7 +23,6 @@
 #define OUTPUT_H
 
 #define OUTPUT_TASK_TIME_FILE "task_times.txt"
-#define OUTPUT_STDOUT_FILE    "task_stdout.txt"
 
 #include "server/tagged_task.h"
 
@@ -35,42 +34,14 @@
 void output_create_task_time_file(void);
 
 /**
- * @brief   Creates a file to store the output of tasks.
- * @details If the file already exists, it will be reset.
- * @note    This function should be called before any task is completed.
- */
-void output_create_stdout_file(void);
-
-/**
  * @brief   Writes the time a task was completed to a file.
  * @param   task The task to write the time of.
  */
 void output_write_task_time(const tagged_task_t *task);
 
 /**
- * @brief Reads the time a task took to complete by it's id.
- */
-void output_read_task_time_by_id(int id);
-
-/**
  * @brief Reads all the file with the task times.
  */
 void output_read_task_times(void);
-
-/**
- * @brief   Writes the output of a task to a file.
- * @param   output The output of the task.
- */
-void output_write_stdout(char *output);
-
-/**
- * @brief   Reads the output of a task by it's id.
- */
-void output_read_stdout_by_id(int id);
-
-/**
- * @brief   Reads all the file with the task outputs.
- */
-void output_read_stdout(void);
 
 #endif

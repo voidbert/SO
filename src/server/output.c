@@ -38,36 +38,14 @@ void output_create_task_time_file(void) {
     close(fd);
 }
 
-void output_create_stdout_file(void) {
-    int fd = open(OUTPUT_STDOUT_FILE, O_CREAT | O_WRONLY, 0644);
+void output_write_task_time(const tagged_task_t *task) {
+    int fd = open(OUTPUT_TASK_TIME_FILE, O_WRONLY | O_APPEND, 0644);
     if (fd < 0) {
         return;
     }
 
-    ftruncate(fd, 0);
+    write(fd, task, tagged_task_sizeof());
     close(fd);
-}
-
-/**
- * @brief Counts the number of lines in the task time file.
- * @return The number of lines in the file, or -1 if the file could not be opened.
- */
-int __output_task_time_count_lines(void) {
-    int fd = open(OUTPUT_TASK_TIME_FILE, O_RDONLY);
-    if (fd < 0) {
-        return -1;
-    }
-
-    int  lines = 0;
-    char c;
-    while (read(fd, &c, 1) > 0) {
-        if (c == '\n') {
-            lines++;
-        }
-    }
-
-    close(fd);
-    return lines;
 }
 
 /**
@@ -76,7 +54,7 @@ int __output_task_time_count_lines(void) {
  * @param index The index of the task in the file.
  * @return A string with the time the task took to complete, or `NULL` on failure.
  */
-char *__output_get_task_time_to_complete(const tagged_task_t *task, int index) {
+char *__output_get_task_time(const tagged_task_t *task, int index) {
     char *time_str = malloc(1024);
     if (time_str == NULL) {
         return NULL;
@@ -97,103 +75,24 @@ char *__output_get_task_time_to_complete(const tagged_task_t *task, int index) {
     return time_str;
 }
 
-void output_write_task_time(const tagged_task_t *task) {
-    int fd = open(OUTPUT_TASK_TIME_FILE, O_WRONLY | O_APPEND, 0644);
-    if (fd < 0) {
-        return;
-    }
-
-    char *time_str = __output_get_task_time_to_complete(task, __output_task_time_count_lines());
-    if (time_str == NULL) {
-        close(fd);
-        return;
-    }
-
-    write(fd, time_str, strlen(time_str));
-    close(fd);
-}
-
-void output_read_task_time_by_id(int id) {
-    int fd = open(OUTPUT_TASK_TIME_FILE, O_RDONLY);
-    if (fd < 0) {
-        return;
-    }
-
-    char c;
-    int  line = 0;
-    while (read(fd, &c, 1) > 0) {
-        if (c == '\n') {
-            line++;
-        }
-
-        if (line == id) {
-            while (read(fd, &c, 1) > 0 && c != '\n') {
-                write(STDOUT_FILENO, &c, 1);
-            }
-            break;
-        }
-    }
-
-    close(fd);
-}
-
 void output_read_task_times(void) {
     int fd = open(OUTPUT_TASK_TIME_FILE, O_RDONLY);
     if (fd < 0) {
         return;
     }
 
-    char c;
-    while (read(fd, &c, 1) > 0) {
-        write(STDOUT_FILENO, &c, 1);
-    }
+    tagged_task_t *task = NULL;
+    int            i    = 0;
 
-    close(fd);
-}
-
-void output_write_stdout(char *output) {
-    int fd = open(OUTPUT_STDOUT_FILE, O_WRONLY | O_APPEND, 0644);
-    if (fd < 0) {
-        return;
-    }
-
-    write(fd, output, strlen(output));
-    close(fd);
-}
-
-void output_read_stdout_by_id(int id) {
-    int fd = open(OUTPUT_STDOUT_FILE, O_RDONLY);
-    if (fd < 0) {
-        return;
-    }
-
-    char c;
-    int  line = 0;
-    while (read(fd, &c, 1) > 0) {
-        if (c == '\n') {
-            line++;
+    while (read(fd, task, tagged_task_sizeof()) != 0) {
+        char *time_str = __output_get_task_time(task, i);
+        if (time_str == NULL) {
+            continue;
         }
 
-        if (line == id) {
-            while (read(fd, &c, 1) > 0 && c != '\n') {
-                write(STDOUT_FILENO, &c, 1);
-            }
-            break;
-        }
-    }
-
-    close(fd);
-}
-
-void output_read_stdout(void) {
-    int fd = open(OUTPUT_STDOUT_FILE, O_RDONLY);
-    if (fd < 0) {
-        return;
-    }
-
-    char c;
-    while (read(fd, &c, 1) > 0) {
-        write(STDOUT_FILENO, &c, 1);
+        write(STDOUT_FILENO, time_str, strlen(time_str));
+        free(time_str);
+        i++;
     }
 
     close(fd);
