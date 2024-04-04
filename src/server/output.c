@@ -34,7 +34,7 @@ void output_create_task_time_file(void) {
         return;
     }
 
-    ftruncate(fd, 0);
+    (void) !ftruncate(fd, 0);
     close(fd);
 }
 
@@ -44,7 +44,7 @@ void output_write_task_time(const tagged_task_t *task) {
         return;
     }
 
-    write(fd, task, tagged_task_sizeof());
+    (void) !write(fd, task, tagged_task_sizeof());
     close(fd);
 }
 
@@ -90,7 +90,7 @@ void output_read_task_times(void) {
             continue;
         }
 
-        write(STDOUT_FILENO, time_str, strlen(time_str));
+        (void) !write(STDOUT_FILENO, time_str, strlen(time_str));
         free(time_str);
         i++;
     }
