@@ -34,6 +34,8 @@
  *     @brief Actual pipeline of programs that need to be run.
  * @var tagged_task::command_line
  *     @brief Command line that was parsed to originate a task.
+ * @var tagged_task::id
+ *     @brief Identifier of the task.
  * @var tagged_task::expected_time
  *     @brief Time that the execution of the task is supposed to take (reported by the client).
  * @var tagged_task::times
@@ -42,12 +44,12 @@
 struct tagged_task {
     task_t  *task;
     char    *command_line;
-    uint32_t expected_time;
+    uint32_t id, expected_time;
 
     struct timespec times[TAGGED_TASK_TIME_COMPLETED + 1];
 };
 
-tagged_task_t *tagged_task_new(const char *command_line, uint32_t expected_time) {
+tagged_task_t *tagged_task_new(const char *command_line, uint32_t id, uint32_t expected_time) {
     if (!command_line) {
         errno = EINVAL;
         return NULL;
@@ -57,6 +59,7 @@ tagged_task_t *tagged_task_new(const char *command_line, uint32_t expected_time)
     if (!ret)
         return NULL; /* errno = ENOMEM guaranteed */
 
+    ret->id            = id;
     ret->expected_time = expected_time;
     memset(ret->times, 0, sizeof(ret->times));
 
@@ -123,6 +126,14 @@ const char *tagged_task_get_command_line(const tagged_task_t *task) {
         return NULL;
     }
     return task->command_line;
+}
+
+uint32_t tagged_task_get_id(const tagged_task_t *task) {
+    if (!task) {
+        errno = EINVAL;
+        return (uint32_t) -1;
+    }
+    return task->id;
 }
 
 uint32_t tagged_task_get_expected_time(const tagged_task_t *task) {
