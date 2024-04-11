@@ -28,6 +28,7 @@
 
 #include "server/priority_queue.h"
 #include "server/scheduler.h"
+#include "server/task_runner.h"
 
 /**
  * @struct scheduler_slot_t
@@ -207,11 +208,7 @@ ssize_t scheduler_dispatch_possible(scheduler_t *scheduler) {
 
         pid_t p = fork();
         if (p == 0) {
-            printf("\"%s\" (slot: %zu, secret: %" PRIu64 ")\n",
-                   tagged_task_get_command_line(task),
-                   slot_search,
-                   scheduler->slots[slot_search].secret);
-            _exit(0); /* TODO - actually run command */
+            _exit(task_runner_main(task, slot_search, scheduler->slots[slot_search].secret));
         } else if (p < 0) {
             fprintf(stderr,
                     "Task %" PRIu32 " was dropped: fork() failed\n",
@@ -248,8 +245,7 @@ tagged_task_t *scheduler_mark_done(scheduler_t           *scheduler,
         return NULL;
     }
 
-    int status;
-    if (waitpid(scheduler->slots[slot].pid, &status, 0) < 0) {
+    if (waitpid(scheduler->slots[slot].pid, NULL, 0) < 0) {
         /* TODO - ask professor about EINTR failure */
 
         /* wait() failed. Still make the slot available but return a failure. */
@@ -261,8 +257,6 @@ tagged_task_t *scheduler_mark_done(scheduler_t           *scheduler,
         scheduler->slots[slot].available = 1;
         return NULL; /* Keep errno */
     }
-
-    (void) status; /* TODO - make task support this information */
 
     tagged_task_t *ret = scheduler->slots[slot].task;
     tagged_task_set_time(ret, TAGGED_TASK_TIME_ENDED, time_ended);
