@@ -29,8 +29,8 @@ SERVER_SOURCES = $(COMMON_SOURCES) $(shell find src/server -name '*.c' -type f)
 CLIENT_SOURCES = $(COMMON_SOURCES) $(shell find src/client -name '*.c' -type f)
 
 COMMON_HEADERS = $(shell find include -maxdepth 1 -name '*.h' -type f)
-SERVER_HEADERS = $(COMMON_HEADERS) $(shell find include/server -name '*.c' -type f)
-CLIENT_HEADERS = $(COMMON_HEADERS) $(shell find include/client -name '*.c' -type f)
+SERVER_HEADERS = $(COMMON_HEADERS) $(shell find include/server -name '*.h' -type f)
+CLIENT_HEADERS = $(COMMON_HEADERS) $(shell find include/client -name '*.h' -type f)
 
 SERVER_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(SERVER_SOURCES))
 CLIENT_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(CLIENT_SOURCES))
