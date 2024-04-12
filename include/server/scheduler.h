@@ -61,8 +61,8 @@ void scheduler_free(scheduler_t *scheduler);
 /**
  * @brief Adds a new task to be executed by a scheduler.
 *
- * @param scheduler Scheduler to add @p task to. Musn't be `NULL`.
- * @param task      Task to be added to @p scheduler. Will be cloned first. Musn't be `NULL`.
+ * @param scheduler Scheduler to add @p task to. Mustn't be `NULL`.
+ * @param task      Task to be added to @p scheduler. Will be cloned first. Mustn't be `NULL`.
  *
  * @retval 0 Success.
  * @retval 1 Failure (check `errno`).
