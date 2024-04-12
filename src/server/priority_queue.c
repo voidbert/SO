@@ -26,25 +26,25 @@
 #include "server/priority_queue.h"
 
 /**
- * @struct priority_queue_data
+ * @struct priority_queue
  * @brief  Stores all the data inside a priority queue.
  *
  * @var priority_queue::values
  *     @brief Array of pointers to ::tagged_task_t values.
  * @var priority_queue::size
- *     @brief Number of elements in ::priority_queue_data::values.
- * @var priority_queue::capcity
- *     @brief Maximum number of elements in ::priority_queue_data::values before reallocation.
+ *     @brief Number of elements in ::priority_queue::values.
+ * @var priority_queue::capacity
+ *     @brief Maximum number of elements in ::priority_queue::values before reallocation.
  * @var priority_queue::cmp_func
  *     @brief Method used to compare two tasks, and order them in the heap.
  */
-typedef struct priority_queue {
+struct priority_queue {
     tagged_task_t **values;
     size_t          size;
     size_t          capacity;
 
     priority_queue_compare_function_t cmp_func;
-} priority_queue_data_t;
+};
 
 /** @brief Initial priority_queue::capacity for the array priority_queue::values. */
 #define PRIORITY_QUEUE_VALUES_INITIAL_SIZE 32
@@ -143,7 +143,7 @@ int __priority_queue_insert_bubble_up(priority_queue_t *queue, size_t placement)
     return 0;
 }
 
-int priority_queue_insert(priority_queue_t *queue, tagged_task_t *element) {
+int priority_queue_insert(priority_queue_t *queue, const tagged_task_t *element) {
     if (queue->size >= queue->capacity) {
         queue->capacity *= 2;
 
