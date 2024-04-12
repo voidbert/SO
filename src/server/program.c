@@ -138,8 +138,10 @@ int program_add_argument(program_t *program, const char *argument) {
     if (program->length >= program->capacity - 2) {
         size_t new_capacity = program->capacity * 2;
         char **new_argv     = realloc(program->argv, sizeof(char *) * new_capacity);
-        if (!new_argv)
+        if (!new_argv) {
+            free(new_argument);
             return 1; /* errno = ENOMEM guaranteed */
+        }
 
         program->capacity = new_capacity;
         program->argv     = new_argv;
