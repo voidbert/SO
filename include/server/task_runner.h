@@ -30,7 +30,7 @@
  * @param task   Task to be run.
  * @param slot   Slot in the scheduler where this task was scheduled, used to identify this task
  *               when compeleted.
- * @param secret Secret random number needed to autheticize the termination of the task.
+ * @param secret Secret random number needed to authenticate the termination of the task.
  *
  * @return 0 Success.
  * @return 1 Failure. `errno` is not set as the process `_exit()`s after calling this.
