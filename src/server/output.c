@@ -54,7 +54,7 @@ void output_write_task_time(const tagged_task_t *task) {
  * @param index The index of the task in the file.
  * @return A string with the time the task took to complete, or `NULL` on failure.
  */
-char *__output_get_task_time(const tagged_task_t *task, int index) {
+char *__output_get_task_time(const tagged_task_t *task) {
     char *time_str = malloc(1024);
     if (time_str == NULL) {
         return NULL;
@@ -63,7 +63,7 @@ char *__output_get_task_time(const tagged_task_t *task, int index) {
     const struct timespec *time_arrived   = tagged_task_get_time(task, TAGGED_TASK_TIME_ARRIVED);
     const struct timespec *time_completed = tagged_task_get_time(task, TAGGED_TASK_TIME_COMPLETED);
 
-    // ta a cair aqui não sei porque??
+    // Time is falling here?
     if (time_arrived == NULL || time_completed == NULL) {
         return NULL;
     }
@@ -71,7 +71,7 @@ char *__output_get_task_time(const tagged_task_t *task, int index) {
     double time = (time_completed->tv_sec - time_arrived->tv_sec) +
                   (time_completed->tv_nsec - time_arrived->tv_nsec) / 1e9;
 
-    sprintf(time_str, "#%d: %f\n", index, time);
+    sprintf(time_str, "#%d: %f\n", tagged_task_get_id(task), time);
     return time_str;
 }
 
@@ -82,17 +82,15 @@ void output_read_task_times(void) {
     }
 
     tagged_task_t *task = NULL;
-    int            i    = 0;
 
     while (read(fd, task, tagged_task_sizeof()) != 0) {
-        char *time_str = __output_get_task_time(task, i);
+        char *time_str = __output_get_task_time(task);
         if (time_str == NULL) {
             continue;
         }
 
         (void) !write(STDOUT_FILENO, time_str, strlen(time_str));
         free(time_str);
-        i++;
     }
 
     close(fd);

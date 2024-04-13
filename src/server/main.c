@@ -31,7 +31,7 @@
 int main(void) {
     output_create_task_time_file();
 
-    tagged_task_t *task = tagged_task_new("echo Hello, world!", 1);
+    tagged_task_t *task = tagged_task_new("echo Hello, world!", 1, 1);
     tagged_task_set_time(task,
                          TAGGED_TASK_TIME_ARRIVED,
                          &(struct timespec){.tv_sec = 0, .tv_nsec = 0});
