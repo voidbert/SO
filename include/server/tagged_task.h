@@ -50,6 +50,7 @@ typedef struct tagged_task tagged_task_t;
 /**
  * @brief Creates a new task from a command line to be parsed.
  *
+ * @param id            Identifier of the task.
  * @param command_line  Command line to parse.
  * @param expected_time Time the client expects this task to consume in execution.
  *
@@ -60,7 +61,7 @@ typedef struct tagged_task tagged_task_t;
  * | `EINVAL` | @p command_line is `NULL` or unparsable. |
  * | `ENOMEM` | Allocation failure.                      |
  */
-tagged_task_t *tagged_task_new(const char *command_line, uint32_t expected_time);
+tagged_task_t *tagged_task_new(const char *command_line, uint32_t id, uint32_t expected_time);
 
 /**
  * @brief  Creates a deep copy of a task.
@@ -93,6 +94,13 @@ const task_t *tagged_task_get_task(const tagged_task_t *task);
  * @return A string on success, or `NULL` on failure (`errno = EINVAL`).
  */
 const char *tagged_task_get_command_line(const tagged_task_t *task);
+
+/**
+ * @brief  Gets the identifier of a tagged task.
+ * @param  task Tagged task to get identifier from. Musn't be `NULL`.
+ * @return The identifier on success, or `(uint32_t) -1` on failure (`errno = EINVAL`).
+ */
+uint32_t tagged_task_get_id(const tagged_task_t *task);
 
 /**
  * @brief  Gets the time the user expects this task to take in execution.

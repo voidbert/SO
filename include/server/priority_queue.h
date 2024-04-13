@@ -24,12 +24,7 @@
 
 #include <stddef.h>
 
-/* TODO - Remove when its properly implemented */
-typedef struct tagged_task tagged_task_t;
-#define tagged_task_clone(task) (task)
-#define tagged_task_free(task)                                                                     \
-    do {                                                                                           \
-    } while (0);
+#include "server/tagged_task.h"
 
 /**
  * @brief   Type of the function called for comparing two ::tagged_task_t's.
@@ -85,14 +80,11 @@ priority_queue_t *priority_queue_clone(const priority_queue_t *queue);
  * | `EINVAL` | @p queue or @p element is `NULL`. |
  * | `ENOMEM` | Allocation failure.               |
  */
-int priority_queue_insert(priority_queue_t *queue, tagged_task_t *element);
+int priority_queue_insert(priority_queue_t *queue, const tagged_task_t *element);
 
 /**
- * @brief Removes the top element from a priority queue.
- *
- * @param queue   Priority queue to take the top element from. Musn't be `NULL` or empty.
- * @param element Used to store the removed element.
- *
+ * @brief  Removes the top element from a priority queue.
+ * @param  queue Priority queue to take the top element from. Musn't be `NULL` or empty.
  * @return The topmost element when successful, `NULL` on failure (`errno = EINVAL` due to `NULL` or
  *         empty @p queue). Ownership of the returned task is passed to the caller.
  */

@@ -49,6 +49,7 @@ LOG_FILE="$(mktemp)"
 valgrind --leak-check=full \
          --show-leak-kinds=all \
          --leak-resolution=high \
+         --child-silent-after-fork=yes \
          --log-file="$LOG_FILE" \
          "$EXE_PATH" "$@"
 
