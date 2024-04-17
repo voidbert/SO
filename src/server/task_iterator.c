@@ -15,18 +15,27 @@
  */
 
 /**
- * @file  main.c
- * @brief Contains the entry point to the server program.
+ * @file  server/task_iterator.c
+ * @brief Implementation of methods in server/task_iterator.h
  */
 
-#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
 
-/**
- * @brief The entry point to the program.
- * @retval 0 Success
- * @retval 1 Insuccess
- */
-int main(void) {
-    puts("Server says hello!");
+#include "server/task_iterator.h"
+
+int task_iterator_iterate(int fd, void *data, task_iterator_callback_t callback) {
+    if (!fd || !callback) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    tagged_task_t *task = NULL;
+    while (read(fd, task, tagged_task_sizeof()) > 0) { // TODO: error here
+        if (callback(task, data) < 0) {
+            return -1;
+        }
+    }
+
     return 0;
 }
