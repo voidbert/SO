@@ -73,10 +73,8 @@ log_file_t *log_file_new(const char *filename) {
 }
 
 void log_file_free(log_file_t *log_file) {
-    if (!log_file) {
-        errno = EINVAL;
+    if (!log_file)
         return;
-    }
 
     close(log_file->create_fd);
     close(log_file->read_fd);
@@ -111,14 +109,19 @@ int log_file_get_write_fd(const log_file_t *log_file) {
     return log_file->write_fd;
 }
 
-void log_file_write_task(const log_file_t *log_file, const tagged_task_t *task) {
+int log_file_write_task(const log_file_t *log_file, const tagged_task_t *task) {
     if (!task || !log_file) {
         errno = EINVAL;
-        return;
+        return -1;
     }
 
     int write_fd = log_file_get_write_fd(log_file);
-    write(write_fd, task, tagged_task_sizeof());
+    if (write(write_fd, task, tagged_task_sizeof()) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
@@ -153,16 +156,25 @@ int __log_file_read_task_callback(const tagged_task_t *task, void *data) {
             time_arrived->tv_nsec,
             time_ended->tv_sec,
             time_ended->tv_nsec);
-    write(STDOUT_FILENO, task_str, strlen(task_str));
+
+    if (!task_str) {
+        errno = ENOMEM;
+        return -1;
+    }
+
+    if (write(STDOUT_FILENO, task_str, strlen(task_str)) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
     return 0;
 }
 
-void log_file_read_task(const log_file_t *log_file) {
+int log_file_read_task(const log_file_t *log_file) {
     if (!log_file) {
         errno = EINVAL;
-        return;
+        return -1;
     }
 
     int read_fd = log_file_get_write_fd(log_file);
-    task_iterator_iterate(read_fd, NULL, __log_file_read_task_callback);
+    return task_iterator_iterate(read_fd, NULL, __log_file_read_task_callback);
 }

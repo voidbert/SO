@@ -45,12 +45,7 @@ log_file_t *log_file_new(const char *filename);
 
 /**
  * @brief Close all file descriptors and frees the log_file_t.
- *
  * @param log_file Log file to be freed.
- *
- * | `errno`  | Cause                  |
- * | -------- | ---------------------- |
- * | `EINVAL` | @p log_file is `NULL`. |
  */
 void log_file_free(log_file_t *log_file);
 
@@ -58,6 +53,8 @@ void log_file_free(log_file_t *log_file);
  * @brief Get the `create` file descriptor for the log file.
  *
  * @param log_file Log file to be freed.
+ *
+ * @return The `create` file descriptor, -1 on failure.
  *
  * | `errno`  | Cause                  |
  * | -------- | ---------------------- |
@@ -70,6 +67,8 @@ int log_file_get_create_fd(const log_file_t *log_file);
  *
  * @param log_file Log file to be freed.
  *
+ * @return The `read` file descriptor, -1 on failure.
+ *
  * | `errno`  | Cause                  |
  * | -------- | ---------------------- |
  * | `EINVAL` | @p log_file is `NULL`. |
@@ -80,6 +79,8 @@ int log_file_get_read_fd(const log_file_t *log_file);
  * @brief Get the `write` file descriptor for the log file.
  *
  * @param log_file Log file to be freed.
+ *
+ * @return The `write` file descriptor, -1 on failure.
  *
  * | `errno`  | Cause                  |
  * | -------- | ---------------------- |
@@ -93,24 +94,27 @@ int log_file_get_write_fd(const log_file_t *log_file);
  * @param log_file Log file to write to.
  * @param task     Task to be written.
  *
+ * @return 0 on success, -1 on error.
+ *
  * | `errno`  | Cause                  |
  * | -------- | ---------------------- |
  * | `EINVAL` | @p log_file is `NULL`. |
  * | `EINVAL` | @p task is `NULL`.     |
  */
-void log_file_write_task(const log_file_t *log_file, const tagged_task_t *task);
+int log_file_write_task(const log_file_t *log_file, const tagged_task_t *task);
 
 /**
  * @brief   Read a task from the log file.
- *
  * @details This function calls a task_iterator to iterate through the log file.
  *
  * @param   log_file Log file to read from.
+ *
+ * @return 0 on success, -1 on error.
  *
  * | `errno`  | Cause                  |
  * | -------- | ---------------------- |
  * | `EINVAL` | @p log_file is `NULL`. |
  */
-void log_file_read_task(const log_file_t *log_file);
+int log_file_read_task(const log_file_t *log_file);
 
 #endif
