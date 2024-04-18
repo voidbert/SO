@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "ipc.h"
@@ -97,8 +96,8 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint) {
         (void) unlink(fifo_path);
         errno = 0;
 
-        /* Client can read and everyone else can read (don't know server's group) */
-        if (mkfifo(fifo_path, 0422)) {
+        /* Client can read and write and everyone else can read (don't know server's group) */
+        if (mkfifo(fifo_path, 0622)) {
             free(ret);
             return NULL;
         }
@@ -147,6 +146,30 @@ int ipc_send(ipc_t *ipc, const uint8_t *message, size_t length) {
     if (write(ipc->send_fd, wrapped_message, wrapped_message_length) != wrapped_message_length)
         return 1;
     return 0;
+}
+
+int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid) {
+    if (!ipc || ipc->this_endpoint != IPC_ENDPOINT_SERVER || ipc->send_fd > 0) {
+        errno = EINVAL;
+        return 1;
+    }
+
+    char client_fifo_path[PATH_MAX];
+    snprintf(client_fifo_path, PATH_MAX, IPC_CLIENT_FIFO_PATH, (long) client_pid);
+    if ((ipc->send_fd = open(client_fifo_path, O_WRONLY)) < 0)
+        return 1; /* Keep errno */
+    return 0;
+}
+
+int ipc_server_close_sending(ipc_t *ipc) {
+    if (!ipc || ipc->this_endpoint != IPC_ENDPOINT_SERVER || ipc->send_fd < 0) {
+        errno = EINVAL;
+        return 1;
+    }
+
+    (void) close(ipc->send_fd);
+    ipc->send_fd = -1;
+    return 0; /* Don't care about closing success */
 }
 
 /**
@@ -250,8 +273,6 @@ int ipc_listen(ipc_t *ipc, ipc_server_on_message_callback_t cb, void *state) {
                 /* Dispatch message */
                 int cb_ret = cb(buffer_read + 2 * sizeof(uint32_t), message_length, state);
                 if (cb_ret) {
-                    fprintf(stderr,
-                            "Protocol error: dropping input frames! Upper layer read failure!\n");
                     __ipc_flush_and_close(ipc);
                     return cb_ret;
                 }

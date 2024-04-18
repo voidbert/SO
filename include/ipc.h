@@ -24,6 +24,7 @@
 
 #include <inttypes.h>
 #include <limits.h>
+#include <sys/types.h>
 
 /** @brief The type of endpoint (this program) in an IPC. */
 typedef enum {
@@ -93,19 +94,41 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint);
  */
 int ipc_send(ipc_t *ipc, const uint8_t *message, size_t length);
 
-/* TODO - implement bidirectional connection */
-int ipc_server_open_sending(void);
-int ipc_server_close_sending(void);
+/**
+ * @brief Prepares a connection on the server to send data to a client.
+ *
+ * @param ipc        Connection to be prepared for sending data.
+ * @param client_pid The PID of the client.
+ *
+ * @retval 0 Success.
+ * @retval 1 Failure (check `errno`).
+ *
+ * | `errno`    | Cause                                                                         |
+ * | ---------- |  ---------------------------------------------------------------------------- |
+ * | `EINVAL`   | @p ipc is `NULL`, not ::IPC_ENDPOINT_SERVER, or already prepared for sending. |
+ * | other      | See `man 2 open`.                                                             |
+ */
+int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid);
+
+/**
+ * @brief Closes the side of a connection from the server to the client.
+ * @param ipc Connection to have one of its sides closed.
+ *
+ * @retval 0 Success (`close()` failures will be ignored).
+ * @retval 1 Failure (`errno = EINVAL` because @p is `NULL`, not a  ::IPC_ENDPOINT_SERVER connection
+ *           or alredy closed for sending).
+ */
+int ipc_server_close_sending(ipc_t *ipc);
 
 /**
  * @brief   Listens for messages received in a connection.
  * @details Protocol errors that are recovered from will be printed to `stderr`.
  *
- * @param ipc   Connection to receive traffic from. Musn't be `NULL`.
- * @param cb    Callback called for every message. Musn't be `NULL`.
+ * @param ipc   Connection to receive traffic from. Mustn't be `NULL`.
+ * @param cb    Callback called for every message. Mustn't be `NULL`.
  * @param state Pointer passed to @p cb so that it can modify the program's state.
  *
- * @retval 0     Success, but protocol errors that are recovered from can still occurr.
+ * @retval 0     Success, but protocol errors that are recovered from can still occur.
  * @retval 1     `NULL` arguments (`errno = EINVAL`) or `open()` / `read()` errors (other values of
  *               `errno`).
  * @retval other Value returned by @p cb on error.
