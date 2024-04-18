@@ -126,13 +126,13 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint) {
     return ret;
 }
 
-int ipc_send(ipc_t *ipc, const uint8_t *message, size_t length) {
+int ipc_send(ipc_t *ipc, const void *message, size_t length) {
     if (!ipc || ipc->send_fd < 0 || !message) {
         errno = EINVAL;
         return 1;
     }
 
-    if (length > IPC_MAXIMUM_MESSAGE_LENGTH) {
+    if (length > IPC_MAXIMUM_MESSAGE_LENGTH || length == 0) {
         errno = EMSGSIZE;
         return 1;
     }
@@ -218,10 +218,13 @@ int __ipc_validate_frame_header(uint8_t frame[8], uint32_t *message_length) {
     return 0;
 }
 
-int ipc_listen(ipc_t *ipc, ipc_server_on_message_callback_t cb, void *state) {
+int ipc_listen(ipc_t                         *ipc,
+               ipc_on_message_callback_t      message_cb,
+               ipc_on_before_block_callback_t block_cb,
+               void                          *state) {
     /* TODO - input fuzzing tests to try and break this */
 
-    if (!ipc || !cb) {
+    if (!ipc || !message_cb || !block_cb) {
         errno = EINVAL;
         return 1;
     }
@@ -258,8 +261,7 @@ int ipc_listen(ipc_t *ipc, ipc_server_on_message_callback_t cb, void *state) {
                 uint32_t frame_length = message_length + 2 * sizeof(uint32_t);
                 if (frame_length > remaining) {
                     if (bytes_read == 0) { /* EOF */
-                        fprintf(stderr,
-                                "Protocol error: dropping input frame! Not enough data!\n");
+                        fprintf(stderr, "Protocol error: dropping input frame! Not enough data!\n");
                         (void) close(ipc->receive_fd);
                         ipc->receive_fd = -1;
                         break;
@@ -271,10 +273,10 @@ int ipc_listen(ipc_t *ipc, ipc_server_on_message_callback_t cb, void *state) {
                 }
 
                 /* Dispatch message */
-                int cb_ret = cb(buffer_read + 2 * sizeof(uint32_t), message_length, state);
-                if (cb_ret) {
+                int mcb_ret = message_cb(buffer_read + 2 * sizeof(uint32_t), message_length, state);
+                if (mcb_ret) {
                     __ipc_flush_and_close(ipc);
-                    return cb_ret;
+                    return mcb_ret;
                 }
 
                 remaining -= frame_length;
@@ -294,6 +296,10 @@ int ipc_listen(ipc_t *ipc, ipc_server_on_message_callback_t cb, void *state) {
                 break;
             }
         }
+
+        int bcb_ret = block_cb(state);
+        if (bcb_ret)
+            return bcb_ret;
     }
 
     return 0;
