@@ -143,6 +143,18 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length) {
     *((uint32_t *) wrapped_message + 1) = (uint32_t) length;
     memcpy(wrapped_message + 2 * sizeof(uint32_t), message, length);
 
+    /*
+     * The following write() won't, in principle, block the server if the pipe buffer is full.
+     *
+     * - If the client has closed its file descriptor, this will fail with EPIPE.
+     * - If the client hasn't closed the file descriptor, it's running ipc_listen, thus consuming
+     *   information in the pipe and emptying its buffer.
+     *
+     * This may block if the client is malicious and opens its file descriptor for reading and
+     * doesn't read from it, while another program fills the pipe buffer. However, as explained in
+     * the report, we won't protect the server against malicious blocks because many of them can't
+     * be dealt with without using signals for timeouts, which we're not allowed to do.
+     */
     if (write(ipc->send_fd, wrapped_message, wrapped_message_length) != wrapped_message_length)
         return 1;
     return 0;
@@ -156,8 +168,20 @@ int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid) {
 
     char client_fifo_path[PATH_MAX];
     snprintf(client_fifo_path, PATH_MAX, IPC_CLIENT_FIFO_PATH, (long) client_pid);
-    if ((ipc->send_fd = open(client_fifo_path, O_WRONLY)) < 0)
+
+    /* TODO - ask professor if we're allowed to use the fcntl syscall */
+
+    /* Don't block the server (O_NONBLOCK). Fail if the other side hasn't opened. */
+    if ((ipc->send_fd = open(client_fifo_path, O_WRONLY | O_NONBLOCK)) < 0)
         return 1; /* Keep errno */
+
+    if (fcntl(ipc->send_fd, F_SETFL, O_NONBLOCK) < 0) {
+        (void) close(ipc->send_fd);
+
+        /* Act like the server would block, because fnctl is part of the steps in preventing it. */
+        errno = ENXIO;
+        return 1;
+    }
     return 0;
 }
 

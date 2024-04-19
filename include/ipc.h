@@ -89,8 +89,7 @@ typedef struct ipc ipc_t;
 ipc_t *ipc_new(ipc_endpoint_t this_endpoint);
 
 /**
- * @brief   Sends a message through IPC.
- * @details This will block if the output FIFO is full (**may block the server**).
+ * @brief Sends a message through IPC.
  *
  * @param ipc     Connection to send traffic through. Musn't be `NULL`. If this is a
  *                ::IPC_ENDPOINT_SERVER connection, it must have been prepared for send data
@@ -112,7 +111,6 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length);
 
 /**
  * @brief   Prepares a connection on the server to send data to a client.
- * @details This **will block the server** if the client isn't listening.
  *
  * @param ipc        Connection to be prepared for sending data. Mustn't be `NULL` and must be a
  *                   ::IPC_ENDPOINT_SERVER connection. This connection should be newly created or,
@@ -127,6 +125,7 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length);
  * | -------- |  ---------------------------------------------------------------------------- |
  * | `EINVAL` | @p ipc is `NULL`, not ::IPC_ENDPOINT_SERVER, or already prepared for sending. |
  * | `ENOENT` | Named pipe doesn't exist (likely the wrong PID was given).                    |
+ * | `ENXIO`  | Calling this would block the server because the client isn't listening.       |
  * | other    | See `man 2 open`.                                                             |
  */
 int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid);
