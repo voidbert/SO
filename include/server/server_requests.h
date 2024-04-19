@@ -15,18 +15,19 @@
  */
 
 /**
- * @file  main.c
- * @brief Contains the entry point to the server program.
+ * @file    server/server_requests.h
+ * @brief   Emitter and handler of requests from the server to the clients.
+ * @details Read the assignment's report for the specification of the protocol used.
  */
 
-#include "server/server_requests.h"
+#ifndef SERVER_REQUESTS_H
+#define SERVER_REQUESTS_H
 
 /**
- * @brief  The entry point to the program.
- * @retval 0 Success
- * @retval 1 Insuccess
+ * @brief   Open a listening connection and listens to incoming requests.
+ * @details This procedure will output to `stderr` in case of error.
+ * @returns This function only exits on failures. It keeps running otherwise.
  */
-int main(void) {
-    server_requests_listen();
-    return 0;
-}
+void server_requests_listen(void);
+
+#endif

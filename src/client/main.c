@@ -19,14 +19,13 @@
  * @brief Contains the entry point to the client program.
  */
 
-#include <stdio.h>
+#include "client/client_requests.h"
 
 /**
- * @brief The entry point to the program.
+ * @brief  The entry point to the program.
  * @retval 0 Success
  * @retval 1 Insuccess
  */
 int main(void) {
-    puts("Client says hello!");
-    return 0;
+    return client_requests_send_program("echo \"Hello, world!\"");
 }
