@@ -72,7 +72,7 @@ command_parser_token_t *__command_parser_token_new_empty(void) {
 
 /**
  * @brief Frees memory used by a token.
- * @param token Token to have its memory released. Musn't be `NULL`.
+ * @param token Token to have its memory released. Mustn't be `NULL`.
  */
 void __command_parser_token_free(command_parser_token_t *token) {
     if (!token)
@@ -84,7 +84,7 @@ void __command_parser_token_free(command_parser_token_t *token) {
 /**
  * @brief Appends a character to a token.
  *
- * @param token Token to have a character appended to it. Musn't be `NULL`.
+ * @param token Token to have a character appended to it. Mustn't be `NULL`.
  * @param c     Character to be added to @p token.
  *
  * @retval 0 Success.

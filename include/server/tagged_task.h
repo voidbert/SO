@@ -83,28 +83,28 @@ void tagged_task_free(tagged_task_t *task);
 
 /**
  * @brief  Gets the program / pipeline contained inside a tagged task.
- * @param  task Tagged task to get task payload from. Musn't be `NULL`.
+ * @param  task Tagged task to get task payload from. Mustn't be `NULL`.
  * @return A ::task_t on success, or `NULL` on failure (`errno = EINVAL`).
  */
 const task_t *tagged_task_get_task(const tagged_task_t *task);
 
 /**
  * @brief  Gets the command line that generated a tagged task.
- * @param  task Tagged task to get command line from. Musn't be `NULL`.
+ * @param  task Tagged task to get command line from. Mustn't be `NULL`.
  * @return A string on success, or `NULL` on failure (`errno = EINVAL`).
  */
 const char *tagged_task_get_command_line(const tagged_task_t *task);
 
 /**
  * @brief  Gets the identifier of a tagged task.
- * @param  task Tagged task to get identifier from. Musn't be `NULL`.
+ * @param  task Tagged task to get identifier from. Mustn't be `NULL`.
  * @return The identifier on success, or `(uint32_t) -1` on failure (`errno = EINVAL`).
  */
 uint32_t tagged_task_get_id(const tagged_task_t *task);
 
 /**
  * @brief  Gets the time the user expects this task to take in execution.
- * @param  task Tagged task to get expected time from. Musn't be `NULL`.
+ * @param  task Tagged task to get expected time from. Mustn't be `NULL`.
  * @return The time in milliseconds, or `(uint32_t) -1` on failure (`errno = EINVAL`).
  */
 uint32_t tagged_task_get_expected_time(const tagged_task_t *task);
@@ -112,7 +112,7 @@ uint32_t tagged_task_get_expected_time(const tagged_task_t *task);
 /**
  * @brief Gets one of the many timestamps stored in tagged task.
  *
- * @param task Task to get a timestamp from. Musn't be NULL.
+ * @param task Task to get a timestamp from. Mustn't be NULL.
  * @param time Identifier of the timestamp to get.
  *
  * @return A pointer to a timestamp in @p task on success, `NULL` on failure (check `errno`).
@@ -127,7 +127,7 @@ const struct timespec *tagged_task_get_time(const tagged_task_t *task, tagged_ta
 /**
  * @brief Sets one of the many timestamps in a tagged task.
  *
- * @param task Task to have one of its timestamps set. Musn't be `NULL`.
+ * @param task Task to have one of its timestamps set. Mustn't be `NULL`.
  * @param id   Which of timestamps should be set.
  * @param time Timestamp to be copied to the task. If `NULL`, the current time will be used.
  *
