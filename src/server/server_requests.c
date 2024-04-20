@@ -101,7 +101,7 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
     if (parsing_failure) {
         size_t                   error_message_size;
         protocol_error_message_t error_message;
-        protocol_error_message_new(&error_message, &error_message_size, "Parsing failure!");
+        protocol_error_message_new(&error_message, &error_message_size, "Parsing failure!\n");
 
         if (ipc_send(state->ipc, &error_message, error_message_size))
             perror("Failure during write() to client");
