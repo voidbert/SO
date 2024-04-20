@@ -37,7 +37,7 @@ int protocol_send_program_task_message_new(protocol_send_program_task_message_t 
     }
 
     size_t len = strlen(command_line);
-    if (len > PROTOCOL_MAXIMUM_COMMAND_LENGTH) {
+    if (len == 0 || len > PROTOCOL_MAXIMUM_COMMAND_LENGTH) {
         errno = EMSGSIZE;
         return 1;
     }
@@ -74,7 +74,7 @@ int protocol_error_message_new(protocol_error_message_t *out, size_t *out_size, 
     }
 
     size_t len = strlen(error);
-    if (len > PROTOCOL_MAXIMUM_ERROR_LENGTH) {
+    if (len == 0 || len > PROTOCOL_MAXIMUM_ERROR_LENGTH) {
         errno = EMSGSIZE;
         return 1;
     }

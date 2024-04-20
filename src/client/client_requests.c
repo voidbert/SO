@@ -102,7 +102,8 @@ int __client_requests_send_program_task(const char *command_line,
                                                multiprogram,
                                                command_line,
                                                expected_time)) {
-        fprintf(stderr, "Command too long!\n"); /* Assume command_line isn't NULL */
+        /* Assume command_line isn't NULL for error message */
+        fprintf(stderr, "Command empty or too long (max: %ld)!\n", PROTOCOL_MAXIMUM_COMMAND_LENGTH);
         return 1;
     }
 
