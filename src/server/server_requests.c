@@ -70,11 +70,18 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
     if (!task && errno == EINVAL)
         parsing_failure = 1;
 
-    if (task && fields->type == PROTOCOL_C2S_SEND_PROGRAM) {
-        size_t program_count;
-        (void) task_get_programs(tagged_task_get_task(task), &program_count);
-        if (program_count != 1)
-            parsing_failure = 1;
+    if (task) {
+        struct timespec time_sent = fields->time_sent, time_arrived = {0};
+        (void) clock_gettime(CLOCK_MONOTONIC, &time_arrived);
+        (void) tagged_task_set_time(task, TAGGED_TASK_TIME_SENT, &time_sent);
+        (void) tagged_task_set_time(task, TAGGED_TASK_TIME_ARRIVED, &time_arrived);
+
+        if (fields->type == PROTOCOL_C2S_SEND_PROGRAM) {
+            size_t program_count;
+            (void) task_get_programs(tagged_task_get_task(task), &program_count);
+            if (program_count != 1)
+                parsing_failure = 1;
+        }
     }
 
     if (!parsing_failure) {

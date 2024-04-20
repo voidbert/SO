@@ -84,6 +84,7 @@ tagged_task_t *tagged_task_clone(const tagged_task_t *task) {
     if (!ret)
         return NULL; /* errno = ENOMEM guaranteed */
 
+    ret->id            = task->id;
     ret->expected_time = task->expected_time;
     memcpy(ret->times, task->times, sizeof(task->times));
 
