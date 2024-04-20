@@ -23,11 +23,22 @@
 #ifndef SERVER_REQUESTS_H
 #define SERVER_REQUESTS_H
 
+#include "server/scheduler.h"
+
 /**
  * @brief   Open a listening connection and listens to incoming requests.
  * @details This procedure will output to `stderr` in case of error.
- * @returns This function only exits on failures. It keeps running otherwise.
+ *
+ * @param policy Task scheduling policy.
+ * @param ntasks Maximum number of tasks scheduled concurrently. Can't be `0`.
+ *
+ * @returns This function only exits on failure (`1`, check `errno`). It keeps running otherwise.
+ *
+ * | `errno`  | Cause                           |
+ * | -------- | ------------------------------- |
+ * | `EINVAL` | Invalid @p policy or @p ntasks. |
+ * | `ENOMEM` | Allocation failure.             |
  */
-void server_requests_listen(void);
+int server_requests_listen(scheduler_policy_t policy, size_t ntasks);
 
 #endif

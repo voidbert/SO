@@ -27,6 +27,6 @@
  * @retval 1 Insuccess
  */
 int main(void) {
-    server_requests_listen();
+    server_requests_listen(SCHEDULER_POLICY_FCFS, 4);
     return 0;
 }
