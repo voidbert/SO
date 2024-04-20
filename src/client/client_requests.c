@@ -49,8 +49,8 @@ int __client_requests_on_message(uint8_t *message, size_t length, void *state) {
 
             protocol_error_message_t *fields = (protocol_error_message_t *) message;
             (void) !write(STDERR_FILENO,
-                         fields->error,
-                         protocol_error_message_get_error_length(length));
+                          fields->error,
+                          protocol_error_message_get_error_length(length));
         } break;
 
         case PROTOCOL_S2C_TASK_ID: {
