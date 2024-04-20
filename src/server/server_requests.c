@@ -70,16 +70,27 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
     if (!task && errno == EINVAL)
         parsing_failure = 1;
 
-    if (scheduler_add_task(state->scheduler, task)) {
-        /*
-         * Informing the client of this failure may require allocations. Just log it and let the
-         * client block.
-         */
-        fprintf(stderr, "Allocation failure! Go buy more RAM!\n");
-        return;
+    if (task && fields->type == PROTOCOL_C2S_SEND_PROGRAM) {
+        size_t program_count;
+        (void) task_get_programs(tagged_task_get_task(task), &program_count);
+        if (program_count != 1)
+            parsing_failure = 1;
+    }
+
+    if (!parsing_failure) {
+        if (scheduler_add_task(state->scheduler, task)) {
+            /*
+            * Informing the client of this failure may require allocations. Just log it and let the
+            * client block.
+            */
+            fprintf(stderr, "Allocation failure! Go buy more RAM!\n");
+            tagged_task_free(task); /* Handles task = NULL in case of allocation failure */
+            return;
+        } else {
+            state->next_task_id++;
+        }
     }
     tagged_task_free(task); /* Handles task = NULL in case of allocation failure */
-    state->next_task_id++;
 
     /* Reply to client */
     if (ipc_server_open_sending(state->ipc, fields->client_pid)) {
