@@ -28,7 +28,7 @@
 
 /** @brief The type of endpoint (this program) in an IPC. */
 typedef enum {
-    IPC_ENDPOINT_CLIENT, /**< Client side. */
+    IPC_ENDPOINT_CLIENT, /**< Client side (includes orchestrator's fork). */
     IPC_ENDPOINT_SERVER, /**< Server side. */
 } ipc_endpoint_t;
 

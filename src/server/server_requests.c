@@ -124,6 +124,35 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
 }
 
 /**
+ * @brief   Handles an incoming ::protocol_task_done_message_t.
+ * @details Returns nothing, as all errors are printed to `stderr`.
+ *
+ * @param state   State of the server. Mustn't be `NULL` (unchecked).
+ * @param message Bytes of the received message. Mustn't be `NULL` (unchecked).
+ * @param length  Number of bytes in @p message.
+ */
+void __server_requests_on_done_message(server_state_t *state, uint8_t *message, size_t length) {
+    if (length != sizeof(protocol_task_done_message_t)) {
+        fprintf(stderr, "Invalid C2S_TASK_DONE message received!\n");
+        return;
+    }
+
+    protocol_task_done_message_t *fields = (protocol_task_done_message_t *) message;
+
+    struct timespec time_ended = fields->time_ended;
+    tagged_task_t *task =
+        scheduler_mark_done(state->scheduler, fields->slot, fields->secret, &time_ended);
+    if (!task) {
+        fprintf(stderr, "C2S_TASK_DONE message with invalid slot / secret!\n");
+        return;
+    }
+
+    /* TODO - log task to file and remove debug information */
+    printf("Task %" PRIu32 " complete!\n", tagged_task_get_id(task));
+    tagged_task_free(task);
+}
+
+/**
  * @brief Listens to new messages coming from the clients.
  *
  * @param message    Bytes of the received message. Mustn't be `NULL` (unchecked).
@@ -141,6 +170,9 @@ int __server_requests_on_message(uint8_t *message, size_t length, void *state_da
         case PROTOCOL_C2S_SEND_PROGRAM:
         case PROTOCOL_C2S_SEND_TASK:
             __server_requests_on_schedule_message(state, message, length);
+            break;
+        case PROTOCOL_C2S_TASK_DONE:
+            __server_requests_on_done_message(state, message, length);
             break;
         default:
             fprintf(stderr, "Message with bad type received!\n");
@@ -160,7 +192,7 @@ int __server_requests_on_message(uint8_t *message, size_t length, void *state_da
  */
 int __server_requests_before_block(void *state_data) {
     server_state_t *state = state_data;
-    if (scheduler_dispatch_possible(state->scheduler) < 0)
+    if (scheduler_dispatch_possible(state->scheduler) < 0) /* New task or old task terminated */
         perror("Scheduler failure");
     return 0; /* Always keep listening for new connections */
 }

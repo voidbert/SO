@@ -45,6 +45,7 @@
 typedef enum {
     PROTOCOL_C2S_SEND_PROGRAM, /**< @brief Send a command with no pipelines to be executed. */
     PROTOCOL_C2S_SEND_TASK,    /**< @brief Send a task that may contain pipelines to be executed. */
+    PROTOCOL_C2S_TASK_DONE,    /**< @brief Server's child completed the execution of a task. */
 } protocol_c2s_msg_type;
 
 /** @brief Types of the messages sent from the server to the client. */
@@ -126,6 +127,28 @@ int protocol_send_program_task_message_check_length(size_t length);
  * @return The length of protocol_send_program_task_message_t::command_line.
  */
 size_t protocol_send_program_task_message_get_error_length(size_t message_length);
+
+/**
+ * @struct  protocol_task_done_message_t
+ * @brief   Structure of a message that tells the server one of its children terminated.
+ * @details A constructor and a message length checker isn't available for such a trivial message
+ *          type.
+ *
+ * @var protocol_task_done_message_t::type
+ *     @brief Must be ::PROTOCOL_C2S_TASK_DONE.
+ * @var protocol_task_done_message_t::slot
+ *     @brief Slot where the message was scheduled. See ::scheduler_mark_done.
+ * @var protocol_task_done_message_t::secret
+ *     @brief Secret number known only by the orchestrator and the child. See ::scheduler_mark_done.
+ * @var protocol_task_done_message_t::time_ended
+ *     @brief When task execution ended. See ::scheduler_mark_done.
+ */
+typedef struct __attribute__((packed)) {
+    protocol_c2s_msg_type type : 8;
+    size_t                slot;
+    uint64_t              secret;
+    struct timespec       time_ended;
+} protocol_task_done_message_t;
 
 /** @brief The maximum length of protocol_error_message_t::error. */
 #define PROTOCOL_MAXIMUM_ERROR_LENGTH (IPC_MAXIMUM_MESSAGE_LENGTH - sizeof(uint8_t))
