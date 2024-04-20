@@ -199,8 +199,10 @@ int __server_requests_before_block(void *state_data) {
 
 int server_requests_listen(scheduler_policy_t policy, size_t ntasks) {
     scheduler_t *scheduler = scheduler_new(policy, ntasks);
-    if (!scheduler)
+    if (!scheduler) {
+        fprintf(stderr, "Invalid number of concurrent tasks!\n");
         return 1;
+    }
 
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_SERVER);
     if (!ipc) {
