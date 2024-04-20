@@ -140,7 +140,7 @@ void __server_requests_on_done_message(server_state_t *state, uint8_t *message, 
     protocol_task_done_message_t *fields = (protocol_task_done_message_t *) message;
 
     struct timespec time_ended = fields->time_ended;
-    tagged_task_t *task =
+    tagged_task_t  *task =
         scheduler_mark_done(state->scheduler, fields->slot, fields->secret, &time_ended);
     if (!task) {
         fprintf(stderr, "C2S_TASK_DONE message with invalid slot / secret!\n");

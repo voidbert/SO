@@ -50,12 +50,10 @@ void __task_runner_wait_all_children(void) {
 int __task_runner_warn_parent(size_t slot, uint64_t secret) {
     struct timespec time_ended = {0};
     (void) clock_gettime(CLOCK_MONOTONIC, &time_ended);
-    protocol_task_done_message_t message = {
-        .type = PROTOCOL_C2S_TASK_DONE,
-        .slot = slot,
-        .secret = secret,
-        .time_ended = time_ended
-    };
+    protocol_task_done_message_t message = {.type       = PROTOCOL_C2S_TASK_DONE,
+                                            .slot       = slot,
+                                            .secret     = secret,
+                                            .time_ended = time_ended};
 
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_CLIENT);
     if (!ipc) {
