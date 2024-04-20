@@ -25,6 +25,7 @@
 
 #include <inttypes.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "ipc.h"
 

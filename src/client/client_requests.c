@@ -20,10 +20,7 @@
  */
 
 #include <errno.h>
-#include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "client/client_requests.h"
@@ -32,8 +29,8 @@
 /**
  * @brief Listens to new messages coming from the server.
  *
- * @param message Bytes of the received message.
- * @param length  Number of bytes in @p message.
+ * @param message Bytes of the received message. Mustn't be `NULL` (unchecked).
+ * @param length  Number of bytes in @p message. Must be greater than `0` (unchecked).
  * @param state   Always `NULL`.
  *
  * @retval 0 Always, even on error, not to drop any message.
@@ -87,7 +84,7 @@ int __client_requests_before_block(void *state) {
 /**
  * @brief Submits a task or a program to be executed by the server.
  *
- * @param command_line  Command line containing the single command / pipeline.
+ * @param command_line  Command line containing the single command / pipeline. Mustn't be `NULL`.
  * @param expected_time Expected execution time in milliseconds.
  * @param multiprogram  Whether @p command_line can contain pipelines.
  *
@@ -124,10 +121,9 @@ int __client_requests_send_program_task(const char *command_line,
         return 1;
     }
 
-    (void) ipc_listen(ipc,
-                      __client_requests_on_message,
-                      __client_requests_before_block,
-                      &expected_time);
+    if (ipc_listen(ipc, __client_requests_on_message, __client_requests_before_block, NULL) == 1)
+        perror("open() error");
+
     ipc_free(ipc);
     return 0;
 }

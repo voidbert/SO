@@ -20,11 +20,8 @@
  */
 
 #include <errno.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "protocol.h"
 #include "server/server_requests.h"
@@ -68,7 +65,7 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
     command_line[command_length] = '\0';
 
     /* Try to create and schedule task */
-    int parsing_failure = 0;
+    int            parsing_failure = 0;
     tagged_task_t *task = tagged_task_new(command_line, state->next_task_id, fields->expected_time);
     if (!task && errno == EINVAL)
         parsing_failure = 1;
@@ -91,17 +88,15 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
     }
 
     if (parsing_failure) {
-        size_t error_message_size;
+        size_t                   error_message_size;
         protocol_error_message_t error_message;
         protocol_error_message_new(&error_message, &error_message_size, "Parsing failure!");
-
 
         if (ipc_send(state->ipc, &error_message, error_message_size))
             perror("Failure during write() to client");
     } else {
-        protocol_task_id_message_t success_message =
-            {.type = PROTOCOL_S2C_TASK_ID, .id = state->next_task_id - 1};
-
+        protocol_task_id_message_t success_message = {.type = PROTOCOL_S2C_TASK_ID,
+                                                      .id   = state->next_task_id - 1};
 
         if (ipc_send(state->ipc, &success_message, sizeof(protocol_task_id_message_t)))
             perror("Failure during write() to client");
@@ -169,7 +164,8 @@ int server_requests_listen(scheduler_policy_t policy, size_t ntasks) {
     }
 
     server_state_t state = {.ipc = ipc, .scheduler = scheduler, .next_task_id = 1};
-    (void) ipc_listen(ipc, __server_requests_on_message, __server_requests_before_block, &state);
+    if (ipc_listen(ipc, __server_requests_on_message, __server_requests_before_block, &state) == 1)
+        perror("open() error");
 
     scheduler_free(scheduler);
     ipc_free(ipc);
