@@ -29,7 +29,8 @@
 int protocol_send_program_task_message_new(protocol_send_program_task_message_t *out,
                                            size_t                               *out_size,
                                            int                                   multiprogram,
-                                           const char                           *command_line) {
+                                           const char                           *command_line,
+                                           uint32_t                              expected_time) {
     if (!out || !out_size || !command_line) {
         errno = EINVAL;
         return 1;
@@ -40,10 +41,11 @@ int protocol_send_program_task_message_new(protocol_send_program_task_message_t 
         errno = EMSGSIZE;
         return 1;
     }
-    *out_size = sizeof(uint8_t) + sizeof(pid_t) + sizeof(struct timespec) + len;
+    *out_size = sizeof(uint8_t) + sizeof(pid_t) + sizeof(struct timespec) + sizeof(uint32_t) + len;
 
-    out->type       = multiprogram ? PROTOCOL_C2S_SEND_PROGRAM : PROTOCOL_C2S_SEND_PROGRAM;
-    out->client_pid = getpid();
+    out->type          = multiprogram ? PROTOCOL_C2S_SEND_PROGRAM : PROTOCOL_C2S_SEND_PROGRAM;
+    out->client_pid    = getpid();
+    out->expected_time = expected_time;
 
     struct timespec t = {0};
     (void) clock_gettime(CLOCK_MONOTONIC, &t);
@@ -54,14 +56,15 @@ int protocol_send_program_task_message_new(protocol_send_program_task_message_t 
 }
 
 int protocol_send_program_task_message_check_length(size_t length) {
-    if (length <= sizeof(uint8_t) + sizeof(pid_t) + sizeof(struct timespec) ||
+    if (length <= sizeof(uint8_t) + sizeof(pid_t) + sizeof(struct timespec) + sizeof(uint32_t) ||
         length > IPC_MAXIMUM_MESSAGE_LENGTH)
         return 0;
     return 1;
 }
 
 size_t protocol_send_program_task_message_get_error_length(size_t message_length) {
-    return message_length - sizeof(uint8_t) - sizeof(pid_t) - sizeof(struct timespec);
+    return message_length - sizeof(uint8_t) - sizeof(pid_t) - sizeof(struct timespec) -
+           sizeof(uint32_t);
 }
 
 int protocol_error_message_new(protocol_error_message_t *out, size_t *out_size, const char *error) {

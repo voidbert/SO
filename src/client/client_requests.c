@@ -87,19 +87,24 @@ int __client_requests_before_block(void *state) {
 /**
  * @brief Submits a task or a program to be executed by the server.
  *
- * @param command_line Command line containing the single command / pipeline.
- * @param multiprogram Whether @p command_line can contain pipelines.
+ * @param command_line  Command line containing the single command / pipeline.
+ * @param expected_time Expected execution time in milliseconds.
+ * @param multiprogram  Whether @p command_line can contain pipelines.
  *
  * @retval 0 Success.
  * @retval 1 Failure (unspecified `errno`).
  */
-int __client_requests_send_program_task(const char *command_line, int multiprogram) {
+int __client_requests_send_program_task(const char *command_line,
+                                        uint32_t    expected_time,
+                                        int         multiprogram) {
+
     size_t                               message_size;
     protocol_send_program_task_message_t message;
     if (protocol_send_program_task_message_new(&message,
                                                &message_size,
                                                multiprogram,
-                                               command_line)) {
+                                               command_line,
+                                               expected_time)) {
         fprintf(stderr, "Command too long!\n"); /* Assume command_line isn't NULL */
         return 1;
     }
@@ -119,15 +124,18 @@ int __client_requests_send_program_task(const char *command_line, int multiprogr
         return 1;
     }
 
-    (void) ipc_listen(ipc, __client_requests_on_message, __client_requests_before_block, NULL);
+    (void) ipc_listen(ipc,
+                      __client_requests_on_message,
+                      __client_requests_before_block,
+                      &expected_time);
     ipc_free(ipc);
     return 0;
 }
 
-int client_requests_send_program(const char *command_line) {
-    return __client_requests_send_program_task(command_line, 0);
+int client_requests_send_program(const char *command_line, uint32_t expected_time) {
+    return __client_requests_send_program_task(command_line, expected_time, 0);
 }
 
-int client_requests_send_task(const char *command_line) {
-    return __client_requests_send_program_task(command_line, 1);
+int client_requests_send_task(const char *command_line, uint32_t expected_time) {
+    return __client_requests_send_program_task(command_line, expected_time, 1);
 }

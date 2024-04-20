@@ -27,5 +27,5 @@
  * @retval 1 Insuccess
  */
 int main(void) {
-    return client_requests_send_program("echo \"Hello, world!\"");
+    return client_requests_send_program("echo \"Hello, world!\"", 100);
 }

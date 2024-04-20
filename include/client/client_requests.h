@@ -24,24 +24,30 @@
 #ifndef CLIENT_REQUESTS_H
 #define CLIENT_REQUESTS_H
 
+#include <inttypes.h>
+
 /**
  * @brief   Submits a command (task that cannot contain pipelines) to the server.
  * @details This procedure will output to `stderr` in case of error.
- * @param   command_line Command line of the command to be sent. Mustn't be `NULL`.
+ *
+ * @param command_line  Command line of the command to be sent. Mustn't be `NULL`.
+ * @param expected_time Expected execution time in milliseconds.
  *
  * @return The value to be returned by `main()`. Final `errno` is unspecified, as all errors are
  *         printed to `stderr`.
  */
-int client_requests_send_program(const char *command_line);
+int client_requests_send_program(const char *command_line, uint32_t expected_time);
 
 /**
  * @brief   Submits a task (that can contain pipelines) to the server.
  * @details This procedure will output to `stderr` in case of error.
- * @param   command_line Command line of the task to be sent. Mustn't be `NULL`.
+ *
+ * @param command_line  Command line of the task to be sent. Mustn't be `NULL`.
+ * @param expected_time Expected execution time in milliseconds.
  *
  * @return The value to be returned by `main()`. No `errno` is unspecified, as all errors are
  *         printed to `stderr`.
  */
-int client_requests_send_task(const char *command_line);
+int client_requests_send_task(const char *command_line, uint32_t expected_time);
 
 #endif

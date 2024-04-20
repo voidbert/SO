@@ -23,6 +23,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include <inttypes.h>
 #include <sys/types.h>
 
 #include "ipc.h"
@@ -53,7 +54,8 @@ typedef enum {
 
 /** @brief The maximum length of protocol_send_program_task_message_t::command_line */
 #define PROTOCOL_MAXIMUM_COMMAND_LENGTH                                                            \
-    (IPC_MAXIMUM_MESSAGE_LENGTH - sizeof(uint8_t) - sizeof(pid_t) - sizeof(struct timespec))
+    (IPC_MAXIMUM_MESSAGE_LENGTH - sizeof(uint8_t) - sizeof(pid_t) - sizeof(struct timespec) -      \
+     sizeof(uint32_t))
 
 /**
  * @struct protocol_send_program_task_message_t
@@ -65,6 +67,8 @@ typedef enum {
  *     @brief PID of the client that sent this message.
  * @var protocol_send_program_task_message_t::time_sent
  *     @brief Timestamp when the client sent the task.
+ * @var protocol_send_program_task_message_t::expected_time
+ *     @brief Expected execution time in milliseconds.
  * @var protocol_send_program_task_message_t::command_line
  *     @brief   Command line containing the task to be parsed.
  *     @details Note that, on reception of a message, not all bytes of this array may be valid, nor
@@ -75,19 +79,21 @@ typedef struct __attribute__((packed)) {
     protocol_c2s_msg_type type : 8;
     pid_t                 client_pid;
     struct timespec       time_sent;
+    uint32_t              expected_time;
     char                  command_line[PROTOCOL_MAXIMUM_COMMAND_LENGTH];
 } protocol_send_program_task_message_t;
 
 /**
  * @brief Creates a new message to send a program / pipeline to the server.
  *
- * @param out          Where to output the message to. Mustn't be `NULL`. Will only be modified when
- *                     this function succeeds.
- * @param out_size     Where to output the number of bytes in the final message to. Mustn't be
- *                     `NULL`. Will only be set when this function succeeds.
- * @param multiprogram Whether @p command_line refers to a pipeline or just a single program.
- * @param command_line Command line to be sent to the server for parsing and execution. Mustn't be
- *                     `NULL`.
+ * @param out           Where to output the message to. Mustn't be `NULL`. Will only be modified
+ *                      when this function succeeds.
+ * @param out_size      Where to output the number of bytes in the final message to. Mustn't be
+ *                      `NULL`. Will only be set when this function succeeds.
+ * @param multiprogram  Whether @p command_line refers to a pipeline or just a single program.
+ * @param command_line  Command line to be sent to the server for parsing and execution. Mustn't be
+ *                      `NULL`.
+ * @param expected_time Expected execution time in milliseconds.
  *
  * @retval 0 Success.
  * @retval 1 Failure (check `errno`).
@@ -100,7 +106,8 @@ typedef struct __attribute__((packed)) {
 int protocol_send_program_task_message_new(protocol_send_program_task_message_t *out,
                                            size_t                               *out_size,
                                            int                                   multiprogram,
-                                           const char                           *command_line);
+                                           const char                           *command_line,
+                                           uint32_t                              expected_time);
 
 /**
  * @brief Checks if a received ::protocol_send_program_task_message_t can have a given length.
