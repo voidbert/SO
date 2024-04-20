@@ -43,7 +43,7 @@ int protocol_send_program_task_message_new(protocol_send_program_task_message_t 
     }
     *out_size = sizeof(uint8_t) + sizeof(pid_t) + sizeof(struct timespec) + sizeof(uint32_t) + len;
 
-    out->type          = multiprogram ? PROTOCOL_C2S_SEND_PROGRAM : PROTOCOL_C2S_SEND_PROGRAM;
+    out->type          = multiprogram ? PROTOCOL_C2S_SEND_TASK : PROTOCOL_C2S_SEND_PROGRAM;
     out->client_pid    = getpid();
     out->expected_time = expected_time;
 
