@@ -91,10 +91,10 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint);
 /**
  * @brief Sends a message through IPC.
  *
- * @param ipc     Connection to send traffic through. Musn't be `NULL`. If this is a
+ * @param ipc     Connection to send traffic through. Musyn't be `NULL`. If this is a
  *                ::IPC_ENDPOINT_SERVER connection, it must have been prepared for send data
  *                (::ipc_server_open_sending).
- * @param message Buffer containing data to send. Musn't be `NULL`.
+ * @param message Buffer containing data to send. Mustn't be `NULL`.
  * @param length  Number of bytes in @p buf. Must be greater than zero and can't exceed
  *                ::IPC_MAXIMUM_MESSAGE_LENGTH.
  *
@@ -111,6 +111,9 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length);
 
 /**
  * @brief   Prepares a connection on the server to send data to a client.
+ * @details This will block the server if the client dies and stops listening to the pipe. We tried
+ *          to prevent it by allowing the server to drop messages, but the professors would rather
+ *          have the server block.
  *
  * @param ipc        Connection to be prepared for sending data. Mustn't be `NULL` and must be a
  *                   ::IPC_ENDPOINT_SERVER connection. This connection should be newly created or,
@@ -125,7 +128,6 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length);
  * | -------- |  ---------------------------------------------------------------------------- |
  * | `EINVAL` | @p ipc is `NULL`, not ::IPC_ENDPOINT_SERVER, or already prepared for sending. |
  * | `ENOENT` | Named pipe doesn't exist (likely the wrong PID was given).                    |
- * | `ENXIO`  | Calling this would block the server because the client isn't listening.       |
  * | other    | See `man 2 open`.                                                             |
  */
 int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid);
@@ -145,16 +147,16 @@ int ipc_server_close_sending(ipc_t *ipc);
 
 /**
  * @brief   Listens for messages received in a connection.
- * @details Protocol errors that are recovered from will be printed to `stderr`.
+ * @details Protocol / `read()` errors that are recovered from will be printed to `stderr`.
  *
  * @param ipc        Connection to receive traffic from. Mustn't be `NULL`.
  * @param message_cb Callback called for every message. Mustn't be `NULL`.
- * @param block_cb   Callback called before possible blocking. Musn't be `NULL`.
+ * @param block_cb   Callback called before possible blocking. Mustn't be `NULL`.
  * @param state      Pointer passed to @p message_cb and @p block_cb so that they can modify the
  *                   program's state.
  *
- * @retval 0     Success, but protocol errors that are recovered from can still occur.
- * @retval 1     `NULL` arguments (`errno = EINVAL`) or `open()` / `read()` errors (other values of
+ * @retval 0     Success, but protocol / `read()` errors that are recovered from can still occur.
+ * @retval 1     `NULL` arguments (`errno = EINVAL`) or `open()` errors (other values of
  *               `errno`).
  * @retval other Value returned by @p message_cb or @p block_cb on error.
  */

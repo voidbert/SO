@@ -63,7 +63,7 @@ struct ipc {
  * @brief Generates the path to the named pipe owned by this endpoint based on its type.
  *
  * @param this_endpoint What type of program is communicating.
- * @param path          Where to output the path to the FIFO. Musn't be `NULL` (not checked).
+ * @param path          Where to output the path to the FIFO. Mustn't be `NULL` (not checked).
  *
  * @retval 0 Success.
  * @retval 1 Failure (`errno = EINVAL`, @p this_endpoint assumes an invalid value).
@@ -168,20 +168,8 @@ int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid) {
 
     char client_fifo_path[PATH_MAX];
     snprintf(client_fifo_path, PATH_MAX, IPC_CLIENT_FIFO_PATH, (long) client_pid);
-
-    /* TODO - ask professor if we're allowed to use the fcntl syscall */
-
-    /* Don't block the server (O_NONBLOCK). Fail if the other side hasn't opened. */
-    if ((ipc->send_fd = open(client_fifo_path, O_WRONLY | O_NONBLOCK)) < 0)
+    if ((ipc->send_fd = open(client_fifo_path, O_WRONLY)) < 0)
         return 1; /* Keep errno */
-
-    if (fcntl(ipc->send_fd, F_SETFL, O_NONBLOCK) < 0) {
-        (void) close(ipc->send_fd);
-
-        /* Act like the server would block, because fnctl is part of the steps in preventing it. */
-        errno = ENXIO;
-        return 1;
-    }
     return 0;
 }
 
@@ -204,7 +192,7 @@ int ipc_server_close_sending(ipc_t *ipc) {
 
 /**
  * @brief   Reads everything from a connection and closes its receiving pipe.
- * @details Auxiliar function for ::ipc_listen.
+ * @details Auxiliary function for ::ipc_listen.
  * @param   ipc Connection whose receiving end is to be flushed and closed.
  */
 void __ipc_flush_and_close(ipc_t *ipc) {
@@ -218,22 +206,22 @@ void __ipc_flush_and_close(ipc_t *ipc) {
 /**
  * @brief   Validates if the header of a frame transmitted in a pipe is valid.
  * @details Header validity is checked for itself, not in the context the header is in.
- *          Auxiliar function for ::ipc_listen.
+ *          Auxiliary function for ::ipc_listen.
  *
- * @param frame          First eight bytes of the frame. Musn't be `NULL` (not checked).
- * @param message_length Where to output the message length to. Musn't be `NULL` (not checked).
+ * @param frame          First eight bytes of the frame. Mustn't be `NULL` (not checked).
+ * @param message_length Where to output the message length to. Mustn't be `NULL` (not checked).
  *
  * @retval 0 Valid header.
  * @retval 1 Invalid header.
  */
-int __ipc_validate_frame_header(uint8_t frame[8], uint32_t *message_length) {
-    if (*((uint32_t *) frame) != IPC_MESSAGE_HEADER_SIGNATURE) {
+int __ipc_validate_frame_header(uint32_t frame[2], uint32_t *message_length) {
+    if (frame[0] != IPC_MESSAGE_HEADER_SIGNATURE) {
         fprintf(stderr,
                 "Protocol error: dropping input frames! Lost track of header signatures!\n");
         return 1;
     }
 
-    *message_length = *((uint32_t *) frame + 1);
+    *message_length = frame[1];
     if (*message_length > IPC_MAXIMUM_MESSAGE_LENGTH) {
         fprintf(stderr, "Protocol error: dropping input frames! Very long frame found!\n");
         return 1;
@@ -266,17 +254,18 @@ int ipc_listen(ipc_t                         *ipc,
             bytes_read =
                 read(ipc->receive_fd, buf + residuals, IPC_SERVER_LISTEN_BUFFER_SIZE - residuals);
             if (bytes_read < 0) { /* Read error */
+                perror("Recovering from read() error");
                 (void) close(ipc->receive_fd);
                 ipc->receive_fd = -1;
-                return 1;
+                break;
             }
 
             ssize_t  remaining   = residuals + bytes_read;
             uint8_t *buffer_read = buf;
-            while (remaining > 8) {
+            while (remaining > (ssize_t) (2 * sizeof(uint32_t))) {
                 /* Validate header by itself */
                 uint32_t message_length;
-                if (__ipc_validate_frame_header(buffer_read, &message_length)) {
+                if (__ipc_validate_frame_header((uint32_t *) buffer_read, &message_length)) {
                     __ipc_flush_and_close(ipc);
                     break;
                 }
@@ -314,7 +303,7 @@ int ipc_listen(ipc_t                         *ipc,
                     break;
                 }
 
-                if (remaining > 0 && remaining <= 8)
+                if (remaining > 0 && remaining <= (ssize_t) (2 * sizeof(uint32_t)))
                     fprintf(stderr, "Protocol error: dropping input frame! Not enough data!\n");
             } else {
                 break;
