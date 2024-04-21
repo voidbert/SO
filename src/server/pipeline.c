@@ -19,11 +19,12 @@
  * @brief Implementation of methods in server/pipeline.h.
  */
 
+#include <errno.h>
 #include <stdint.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "server/task.h"
+#include "server/pipeline.h"
 
 /**
  * @brief Closes file descriptors used for pipe comunication.

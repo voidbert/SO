@@ -22,6 +22,8 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
+#include "server/task.h"
+
 /**
  * @brief Executes a task which is a pipeline.
  * @param task Task with programs to be executed in a pipeline.
