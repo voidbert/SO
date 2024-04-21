@@ -24,19 +24,17 @@
 
 /**
  * @brief Executes a task which is a pipeline.
- * @param taks Task with programs to be executed in a pipeline.
+ * @param task Task with programs to be executed in a pipeline.
  *
  * @return 1 on failure (check `errno`), or 0 on success.
  *
  * | `errno`  | Cause                                                                              |
- * | -------- | ---------------------------------------------------------------------------------- |                                       |
+ * | -------- | ---------------------------------------------------------------------------------- |
+ * | `EINVAL` | Invalid argument, @p task is `NULL` or not a pipeline.                             |
  * | `ENOMEM` | `fork()` failure from insuficient memory or from terminated "init" process in      |
  * |          |  namespace.                                                                        |
- * | -------- | ---------------------------------------------------------------------------------- |
  * | `EMFILE` | System call `pipe()` failure, due to system resources limits (see `man 2 pipe`).   |
- * | -------- | ---------------------------------------------------------------------------------- |
  * | other    | See `man 2 execve`.                                                                |
- * | -------- | ---------------------------------------------------------------------------------- |
  */
 int pipeline_execute(const task_t *task);
 

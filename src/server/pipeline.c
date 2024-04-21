@@ -42,8 +42,10 @@ int pipeline_execute(const task_t *task) {
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(task, &nprograms);
 
-    if (nprograms < 2)
-        return 1; /* Not a pipeline */
+    if (!programs || nprograms < 2) {
+        errno = EINVAL; /* Parsing error, programs is `NULL` or `task` isn't a pipeline */
+        return 1;
+    }
 
     int fd_pairs[nprograms - 1][2];
 
