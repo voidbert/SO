@@ -170,7 +170,3 @@ int tagged_task_set_time(tagged_task_t *task, tagged_task_time_t id, const struc
         clock_gettime(CLOCK_MONOTONIC, task->times + id);
     return 0;
 }
-
-size_t tagged_task_sizeof(void) {
-    return sizeof(tagged_task_t);
-}

@@ -136,6 +136,4 @@ const struct timespec *tagged_task_get_time(const tagged_task_t *task, tagged_ta
  */
 int tagged_task_set_time(tagged_task_t *task, tagged_task_time_t id, const struct timespec *time);
 
-size_t tagged_task_sizeof(void);
-
 #endif
