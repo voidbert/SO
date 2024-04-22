@@ -155,10 +155,10 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
         return 1;
 
     if (nprograms == 1) {
-        if(__task_runner_run_single_program(programs[0], tagged_task_get_id(task)))
+        if (__task_runner_run_single_program(programs[0], tagged_task_get_id(task)))
             return 1;
     } else {
-        if(__task_runner_run_pipeline(programs, nprograms, tagged_task_get_id(task)))
+        if (__task_runner_run_pipeline(programs, nprograms, tagged_task_get_id(task)))
             return 1;
     }
 
