@@ -24,6 +24,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "protocol.h"
 #include "server/task_runner.h"
 
 /** @brief Waits for all children of the current process. */
@@ -34,6 +35,43 @@ void __task_runner_wait_all_children(void) {
         if (p < 0 && errno == ECHILD) /* No more children */
             break;
     }
+}
+
+/**
+ * @brief   Communicates to the parent server that the task has terminated.
+ * @details Errors will be outputted to `stderr`.
+ *
+ * @param slot   Slot in the scheduler where this task was scheduled.
+ * @param secret Secret random number needed to authenticate the termination of the task.
+ *
+ * @retval 0 Success.
+ * @retval 1 Failure (unspecified `errno`).
+ */
+int __task_runner_warn_parent(size_t slot, uint64_t secret) {
+    struct timespec time_ended = {0};
+    (void) clock_gettime(CLOCK_MONOTONIC, &time_ended);
+    protocol_task_done_message_t message = {.type       = PROTOCOL_C2S_TASK_DONE,
+                                            .slot       = slot,
+                                            .secret     = secret,
+                                            .time_ended = time_ended};
+
+    ipc_t *ipc = ipc_new(IPC_ENDPOINT_CLIENT);
+    if (!ipc) {
+        if (errno == ENOENT)
+            fprintf(stderr, "Task completion communication: server's FIFO not found.\n");
+        else
+            perror("Task completion communication: Failed to open() server's FIFO");
+        return 1;
+    }
+
+    if (ipc_send(ipc, &message, sizeof(protocol_task_done_message_t))) {
+        perror("Task completion communication: failed to write() message to server");
+        ipc_free(ipc);
+        return 1;
+    }
+
+    ipc_free(ipc);
+    return 0;
 }
 
 int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
@@ -62,9 +100,5 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
     }
 
     __task_runner_wait_all_children();
-
-    /* TODO - communicate termination to parent through FIFO */
-    (void) slot;
-    (void) secret;
-    return 0;
+    return __task_runner_warn_parent(slot, secret);
 }
