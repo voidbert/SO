@@ -64,7 +64,7 @@ int __task_runner_spawn(const program_t *program, int in, int out) {
         }
 
         /* TODO - support stderr duplication */
-      
+
         execvp(args[0], (char *const *) (uintptr_t) args);
 
         /* This error message will end up in the stderr file */
