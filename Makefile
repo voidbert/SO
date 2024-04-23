@@ -27,6 +27,7 @@ PREFIX ?= $(HOME)/.local
 COMMON_SOURCES = $(shell find src -maxdepth 1 -name '*.c' -type f )
 SERVER_SOURCES = $(COMMON_SOURCES) $(shell find src/server -name '*.c' -type f)
 CLIENT_SOURCES = $(COMMON_SOURCES) $(shell find src/client -name '*.c' -type f)
+UNIQUE_SOURCES = $(shell echo $(CLIENT_SOURCES) $(SERVER_SOURCES) | tr ' ' '\n' | sort | uniq)
 
 COMMON_HEADERS = $(shell find include -maxdepth 1 -name '*.h' -type f)
 SERVER_HEADERS = $(COMMON_HEADERS) $(shell find include/server -name '*.h' -type f)
@@ -36,7 +37,7 @@ SERVER_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(SERVER_SOURCES))
 CLIENT_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(CLIENT_SOURCES))
 
 THEMES  = $(wildcard theme/*)
-DEPENDS = $(patsubst src/%.c, $(DEPDIR)/%.d, $(COMMON_SOURCES) $(SERVER_SOURCES) $(CLIENT_SOURCES))
+DEPENDS = $(patsubst src/%.c, $(DEPDIR)/%.d, $(UNIQUE_SOURCES))
 
 ifeq ($(DEBUG), 1)
 	CFLAGS += $(DEBUG_CFLAGS)

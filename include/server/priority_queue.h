@@ -68,9 +68,9 @@ priority_queue_t *priority_queue_clone(const priority_queue_t *queue);
 /**
  * @brief Inserts a new ::tagged_task_t into a priority queue.
  *
- * @param queue   Priority queue to insert @p element in. Musn't be `NULL`.
+ * @param queue   Priority queue to insert @p element in. Mustn't be `NULL`.
  * @param element Element to be inserted in @p queue. Will be cloned before insertion.
- *                Musn't be `NULL`.
+ *                Mustn't be `NULL`.
  *
  * @retval 0 Success.
  * @retval 1 Failure (see `errno` below).
@@ -84,7 +84,7 @@ int priority_queue_insert(priority_queue_t *queue, const tagged_task_t *element)
 
 /**
  * @brief  Removes the top element from a priority queue.
- * @param  queue Priority queue to take the top element from. Musn't be `NULL` or empty.
+ * @param  queue Priority queue to take the top element from. Mustn't be `NULL` or empty.
  * @return The topmost element when successful, `NULL` on failure (`errno = EINVAL` due to `NULL` or
  *         empty @p queue). Ownership of the returned task is passed to the caller.
  */
@@ -92,7 +92,7 @@ tagged_task_t *priority_queue_remove_top(priority_queue_t *queue);
 
 /**
  * @brief Returns the number of elements in a priority queue.
- * @param queue Priority queue to have its number of elements returned. Musn't be `NULL`.
+ * @param queue Priority queue to have its number of elements returned. Mustn't be `NULL`.
  * @return The number of elements stored in the @p queue, or `(size_t) -1` on failure
  *         (`errno = EINVAL`).
  */

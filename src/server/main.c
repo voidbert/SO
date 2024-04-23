@@ -20,13 +20,53 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "server/server_requests.h"
 
 /**
- * @brief The entry point to the program.
+ * @brief  Prints the usage of the program to `stderr`.
+ * @param  program_name `argv[0]`.
+ * @return Always `1`.
+ */
+int __main_help_message(const char *program_name) {
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "  See this message: %s help\n", program_name);
+    fprintf(stderr,
+            "  Run server:       %s (output folder) (number of tasks) (policy)\n",
+            program_name);
+    fprintf(stderr, "    where policy = fcfs | sjf\n");
+    return 1;
+}
+
+/**
+ * @brief  The entry point to the program.
  * @retval 0 Success
  * @retval 1 Insuccess
  */
-int main(void) {
-    puts("Server says hello!");
-    return 0;
+int main(int argc, char **argv) {
+    if (argc == 2 && strcmp(argv[1], "help") == 0) {
+        (void) __main_help_message(argv[0]);
+        return 0;
+    } else if (argc == 4) {
+        /* TODO - create directory */
+
+        char         *integer_end;
+        unsigned long ntasks = strtoul(argv[2], &integer_end, 10);
+        if (!*(argv[2]) || *integer_end)
+            return __main_help_message(argv[0]);
+
+        scheduler_policy_t policy;
+        if (strcmp(argv[3], "fcfs") == 0)
+            policy = SCHEDULER_POLICY_FCFS;
+        else if (strcmp(argv[3], "sjf") == 0)
+            policy = SCHEDULER_POLICY_SJF;
+        else
+            return __main_help_message(argv[0]);
+
+        return server_requests_listen(policy, ntasks);
+    } else {
+        return __main_help_message(argv[0]);
+    }
 }

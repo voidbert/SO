@@ -99,7 +99,7 @@ int task_add_program(task_t *task, const program_t *program);
 /**
  * @brief Gets the list of programs in a task.
  *
- * @param task  Task to get programs from. Musn't be `NULL`.
+ * @param task  Task to get programs from. Mustn't be `NULL`.
  * @param count Where to place number of programs in list. Will only be updated on success. Mustn't
  *              be `NULL`.
  *

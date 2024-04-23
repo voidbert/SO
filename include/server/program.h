@@ -97,7 +97,7 @@ int program_add_argument(program_t *program, const char *argument);
 
 /**
  * @brief  Gets the list of arguments in a program.
- * @param  program Program to get arguments from. Musn't be `NULL`.
+ * @param  program Program to get arguments from. Mustn't be `NULL`.
  * @return A `NULL`-terminated list of program arguments, including the program's name, or `NULL` on
  *         failure (`errno = EINVAL`).
  */
@@ -105,7 +105,7 @@ const char *const *program_get_arguments(const program_t *program);
 
 /**
  * @brief  Gets the number of arguments in a program (including the program's name).
- * @param  program Program to get number of arguments from. Musn't be `NULL`.
+ * @param  program Program to get number of arguments from. Mustn't be `NULL`.
  * @return The number of arguments in a program (including the program's name), or `NULL` on
  *         failure (`errno = EINVAL`).
  */
