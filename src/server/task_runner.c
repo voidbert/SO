@@ -37,130 +37,73 @@ void __task_runner_wait_all_children(void) {
 }
 
 /**
- * @brief Closes file descriptors used for pipe comunication.
+ * @brief Spawns a program with input and output file descriptors.
  *
- * @param fd_pairs Array with file descriptors to be closed.
- * @param size     Number of pairs of file descriptors in @p fd_pairs.
+ * @param program Program to be spawned.
+ * @param in      Input file descriptor to be duplicated.
+ * @param out     Output file descriptor to be duplicated.
+ *
+ * @retval 0 Success
+ * @retval 1 `fork()` failure.
  */
-void __task_runner_close_pipes_descriptors(int (*fd_pairs)[2], size_t size) {
-    for (size_t i = 0; i < size; ++i) {
-        close(fd_pairs[i][STDOUT_FILENO]);
-        close(fd_pairs[i][STDIN_FILENO]);
-    }
-}
-
-int __task_runner_execute(const char *const program, const char *const *args, uint32_t task_id) {
-    execvp(program, (char *const *) (uintptr_t) args);
-
-    fprintf(stderr, "exec() failed running task %" PRIu32 "!\n", task_id);
-    __task_runner_wait_all_children();
-    return 1;
-}
-
-int __task_runner_run_pipeline(const program_t *const *programs,
-                               size_t                  nprograms,
-                               uint32_t                task_id) {
-
-    int fd_pairs[nprograms - 1][2];
-
-    if (pipe(fd_pairs[0]))
-        return 1;
-
-    pid_t p = fork();
-    if (!p) {
-        dup2(fd_pairs[0][STDOUT_FILENO], STDOUT_FILENO);
-
-        __task_runner_close_pipes_descriptors(fd_pairs, 1);
-
-        if (__task_runner_execute(program_get_arguments(programs[0])[0],
-                                  program_get_arguments(programs[0]),
-                                  task_id))
-            return 1;
-
-    } else if (p == -1) {
-        fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
-        __task_runner_wait_all_children();
-        return 1;
-    }
-
-    for (size_t i = 1; i < nprograms - 1; ++i) {
-        if (pipe(fd_pairs[i]))
-            return 1;
-
-        p = fork();
-        if (!p) {
-            dup2(fd_pairs[i - 1][STDIN_FILENO], STDIN_FILENO);
-            dup2(fd_pairs[i][STDOUT_FILENO], STDOUT_FILENO);
-
-            __task_runner_close_pipes_descriptors(fd_pairs, i + 1);
-
-            if (__task_runner_execute(program_get_arguments(programs[i])[0],
-                                      program_get_arguments(programs[i]),
-                                      task_id))
-                return 1;
-
-        } else if (p == -1) {
-            fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
-            __task_runner_wait_all_children();
-            return 1;
-        }
-    }
-
-    p = fork();
-    if (!p) {
-        dup2(fd_pairs[nprograms - 2][STDIN_FILENO], STDIN_FILENO);
-
-        __task_runner_close_pipes_descriptors(fd_pairs, nprograms - 1);
-
-        if (__task_runner_execute(program_get_arguments(programs[nprograms - 1])[0],
-                                  program_get_arguments(programs[nprograms - 1]),
-                                  task_id))
-            return 1;
-
-    } else if (p == -1) {
-        fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
-        __task_runner_wait_all_children();
-        return 1;
-    }
-
-    __task_runner_close_pipes_descriptors(fd_pairs, nprograms - 1);
-    __task_runner_wait_all_children();
-
-    return 0;
-}
-
-int __task_runner_run_single_program(const program_t *const program, uint32_t task_id) {
+int __task_runner_spawn(const program_t *program, int in, int out) {
     const char *const *args = program_get_arguments(program);
-
     pid_t p = fork();
     if (p == 0) {
-        if (__task_runner_execute(args[0], args, task_id))
-            return 1;
+        close(STDIN_FILENO); /* Don't allow reads from the user's terminal */
 
-    } else if (p < 0) {
-        fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
-        __task_runner_wait_all_children();
-        return 1;
+        if (in != STDIN_FILENO) {
+            dup2(in, STDIN_FILENO);
+            close(in);
+        }
+
+        if (out != STDOUT_FILENO) { /* TODO - remove if-statement when outputting to file */
+            dup2(out, STDOUT_FILENO);
+            close(out);
+        }
+
+        /* TODO - support stderr duplication */
+
+        execvp(args[0], (char *const *) (uintptr_t) args);
+
+        /* This error message will end up in the stderr file */
+        fprintf(stderr, "exec() failed!\n");
+        __task_runner_wait_all_children(); /* May block forever */
+        _exit(1);
     }
-
-    __task_runner_wait_all_children();
-
     return 0;
 }
 
 int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
+    uint32_t                task_id = tagged_task_get_id(task);
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(tagged_task_get_task(task), &nprograms);
     if (!nprograms)
         return 1;
 
-    if (nprograms == 1) {
-        if (__task_runner_run_single_program(programs[0], tagged_task_get_id(task)))
-            return 1;
-    } else {
-        if (__task_runner_run_pipeline(programs, nprograms, tagged_task_get_id(task)))
-            return 1;
+    int in = 0;
+    for (size_t i = 0; i < nprograms - 1; ++i) {
+        int fds[2];
+        if (pipe(fds)) {
+            fprintf(stderr, "pipe() failed running task %" PRIu32 "!\n", task_id);
+            __task_runner_wait_all_children(); /* May block forever */
+            _exit(1);
+        }
+
+        if (__task_runner_spawn(programs[i], in, fds[STDOUT_FILENO])) {
+            fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
+            __task_runner_wait_all_children(); /* May block forever */
+            _exit(1);
+        }
+        if (i != 0) /* Don't close stdin */
+            close(in);
+        close(fds[STDOUT_FILENO]);
+        in = fds[STDIN_FILENO];
     }
+
+    __task_runner_spawn(programs[nprograms - 1], in, 1);
+
+    __task_runner_wait_all_children(); /* May block forever */
 
     /* TODO - communicate termination to parent through FIFO */
     (void) slot;
