@@ -48,7 +48,7 @@ void __task_runner_wait_all_children(void) {
  */
 int __task_runner_spawn(const program_t *program, int in, int out) {
     const char *const *args = program_get_arguments(program);
-    pid_t p = fork();
+    pid_t              p    = fork();
     if (p == 0) {
         close(STDIN_FILENO); /* Don't allow reads from the user's terminal */
 
