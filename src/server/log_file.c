@@ -26,10 +26,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "protocol.h"
 #include "server/log_file.h"
-
-/* TODO - remove this when IPC is merged */
-#define PROTOCOL_MAXIMUM_COMMAND_LENGTH 1000
 
 /**
  * @struct log_file

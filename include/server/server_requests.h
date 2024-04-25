@@ -29,16 +29,18 @@
  * @brief   Open a listening connection and listens to incoming requests.
  * @details This procedure will output to `stderr` in case of error.
  *
- * @param policy Task scheduling policy.
- * @param ntasks Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param policy    Task scheduling policy.
+ * @param ntasks    Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param directory Directory where the server will output logs and program outputs to.
  *
  * @returns This function only exits on failure (`1`, check `errno`). It keeps running otherwise.
  *
- * | `errno`  | Cause                           |
- * | -------- | ------------------------------- |
- * | `EINVAL` | Invalid @p policy or @p ntasks. |
- * | `ENOMEM` | Allocation failure.             |
+ * | `errno`  | Cause                                                   |
+ * | -------- | ------------------------------------------------------- |
+ * | `EINVAL` | Invalid @p policy or @p ntasks, or `NULL` @p directory. |
+ * | `ENOMEM` | Allocation failure.                                     |
+ * | other    | `See man 2 open`.                                       |
  */
-int server_requests_listen(scheduler_policy_t policy, size_t ntasks);
+int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char *directory);
 
 #endif

@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
         else
             return __main_help_message(argv[0]);
 
-        return server_requests_listen(policy, ntasks);
+        return server_requests_listen(policy, ntasks, argv[1]);
     } else {
         return __main_help_message(argv[0]);
     }

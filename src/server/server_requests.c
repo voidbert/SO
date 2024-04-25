@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "protocol.h"
+#include "server/log_file.h"
 #include "server/server_requests.h"
 
 /**
@@ -36,11 +37,14 @@
  *     @brief Task scheduler.
  * @var server_state_t::next_task_id
  *     @brief The identifier that will be attributed to the next scheduled task.
+ * @var server_state_t::log
+ *     @brief Where to log completed tasks to.
  */
 typedef struct {
     ipc_t       *ipc;
     scheduler_t *scheduler;
     uint32_t     next_task_id;
+    log_file_t  *log;
 } server_state_t;
 
 /**
@@ -147,8 +151,8 @@ void __server_requests_on_done_message(server_state_t *state, uint8_t *message, 
         return;
     }
 
-    /* TODO - log task to file and remove debug information */
-    printf("Task %" PRIu32 " complete!\n", tagged_task_get_id(task));
+    if (log_file_write_task(state->log, task))
+        perror("Failed to log completed task to file");
     tagged_task_free(task);
 }
 
@@ -197,11 +201,16 @@ int __server_requests_before_block(void *state_data) {
     return 0; /* Always keep listening for new connections */
 }
 
-int server_requests_listen(scheduler_policy_t policy, size_t ntasks) {
+int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char *directory) {
+    if (!directory) {
+        errno = EINVAL;
+        return 1;
+    }
+
     scheduler_t *scheduler = scheduler_new(policy, ntasks);
     if (!scheduler) {
-        fprintf(stderr, "Invalid number of concurrent tasks!\n");
-        return 1;
+        fprintf(stderr, "Invalid policy or number of concurrent tasks!\n");
+        return 1; /* errno = EINVAL guaranteed */
     }
 
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_SERVER);
@@ -215,10 +224,21 @@ int server_requests_listen(scheduler_policy_t policy, size_t ntasks) {
         return 1;
     }
 
-    server_state_t state = {.ipc = ipc, .scheduler = scheduler, .next_task_id = 1};
+    char log_path[PATH_MAX];
+    snprintf(log_path, PATH_MAX, "%s/log.bin", directory);
+    log_file_t *log = log_file_new(log_path, 1);
+    if (!log) {
+        perror("Failed to open log file");
+        scheduler_free(scheduler);
+        ipc_free(ipc);
+        return 1;
+    }
+
+    server_state_t state = {.ipc = ipc, .scheduler = scheduler, .next_task_id = 1, .log = log};
     if (ipc_listen(ipc, __server_requests_on_message, __server_requests_before_block, &state) == 1)
         perror("open() error");
 
+    log_file_free(log);
     scheduler_free(scheduler);
     ipc_free(ipc);
     return 0;
