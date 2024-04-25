@@ -150,7 +150,7 @@ int scheduler_add_task(scheduler_t *scheduler, const tagged_task_t *task) {
 
 int scheduler_can_schedule_now(scheduler_t *scheduler) {
     for (size_t i = 0; i < scheduler->ntasks; ++i)
-         if (scheduler->slots[i].available)
+        if (scheduler->slots[i].available)
             return 1;
     return 0;
 }

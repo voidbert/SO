@@ -128,14 +128,14 @@ int protocol_status_response_message_new(
     else
         out->status = PROTOCOL_TASK_STATUS_QUEUED;
 
-    out->time_c2s_fifo = __protocol_status_time_diff(times[TAGGED_TASK_TIME_ARRIVED],
-                                                     times[TAGGED_TASK_TIME_SENT]);
-    out->time_waiting = __protocol_status_time_diff(times[TAGGED_TASK_TIME_DISPATCHED],
+    out->time_c2s_fifo =
+        __protocol_status_time_diff(times[TAGGED_TASK_TIME_ARRIVED], times[TAGGED_TASK_TIME_SENT]);
+    out->time_waiting   = __protocol_status_time_diff(times[TAGGED_TASK_TIME_DISPATCHED],
                                                     times[TAGGED_TASK_TIME_ARRIVED]);
     out->time_executing = __protocol_status_time_diff(times[TAGGED_TASK_TIME_ENDED],
                                                       times[TAGGED_TASK_TIME_DISPATCHED]);
-    out->time_s2s_fifo = __protocol_status_time_diff(times[TAGGED_TASK_TIME_COMPLETED],
-                                                      times[TAGGED_TASK_TIME_ENDED]);
+    out->time_s2s_fifo  = __protocol_status_time_diff(times[TAGGED_TASK_TIME_COMPLETED],
+                                                     times[TAGGED_TASK_TIME_ENDED]);
 
     size_t len = strlen(command_line);
     if (len > PROTOCOL_STATUS_MAXIMUM_LENGTH) {
