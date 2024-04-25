@@ -152,7 +152,7 @@ void __server_requests_on_done_message(server_state_t *state, uint8_t *message, 
         return;
     }
 
-    if (log_file_write_task(state->log, task))
+    if (log_file_write_task(state->log, task, fields->error))
         perror("Failed to log completed task to file");
     tagged_task_free(task);
 }

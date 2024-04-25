@@ -142,12 +142,18 @@ size_t protocol_send_program_task_message_get_error_length(size_t message_length
  *     @brief Secret number known only by the orchestrator and the child. See ::scheduler_mark_done.
  * @var protocol_task_done_message_t::time_ended
  *     @brief When task execution ended. See ::scheduler_mark_done.
+ * @var protocol_task_done_message_t::is_status
+ *     @brief If the scheduled task is a status task.
+ * @var protocol_task_done_message_t::error
+ *     @brief Whether running the task resulted in an error.
  */
 typedef struct __attribute__((packed)) {
     protocol_c2s_msg_type type : 8;
     size_t                slot;
     uint64_t              secret;
     struct timespec       time_ended;
+    uint8_t               is_status;
+    uint8_t               error;
 } protocol_task_done_message_t;
 
 /** @brief The maximum length of protocol_error_message_t::error. */
