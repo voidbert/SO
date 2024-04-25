@@ -20,10 +20,10 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <fcntl.h>
 
 #include "protocol.h"
 #include "server/task_runner.h"
@@ -117,7 +117,7 @@ int __task_runner_warn_parent(size_t slot, uint64_t secret) {
     return 0;
 }
 
-int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char* outputdir) {
+int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char *outputdir) {
     uint32_t                task_id = tagged_task_get_id(task);
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(tagged_task_get_task(task), &nprograms);

@@ -19,11 +19,11 @@
  * @brief Contains the entry point to the server program.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <errno.h>
 
 #include "server/server_requests.h"
 

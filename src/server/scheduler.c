@@ -23,9 +23,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <string.h>
 
 #include "server/priority_queue.h"
 #include "server/scheduler.h"
@@ -130,7 +130,7 @@ scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, char *outpu
     ret->ntasks = ntasks;
 
     ret->outputdir = strdup(outputdir);
-    if(!ret->outputdir) {
+    if (!ret->outputdir) {
         priority_queue_free(ret->queue);
         free(ret->slots);
         free(ret);
