@@ -148,6 +148,13 @@ int scheduler_add_task(scheduler_t *scheduler, const tagged_task_t *task) {
     return priority_queue_insert(scheduler->queue, task);
 }
 
+int scheduler_can_schedule_now(scheduler_t *scheduler) {
+    for (size_t i = 0; i < scheduler->ntasks; ++i)
+         if (scheduler->slots[i].available)
+            return 1;
+    return 0;
+}
+
 /**
  * @brief   Generates a secret random number only known by the parent and child programs.
  * @details This aims to avoid DoS attacks where a client sends a message telling the server to wait

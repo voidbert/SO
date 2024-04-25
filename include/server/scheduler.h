@@ -75,6 +75,14 @@ void scheduler_free(scheduler_t *scheduler);
 int scheduler_add_task(scheduler_t *scheduler, const tagged_task_t *task);
 
 /**
+ * @brief  Returns whether a scheduler can start another task at the momement.
+ * @param  scheduler Scheduler to be checked.
+ * @retval 1 Yes.
+ * @retval 0 No.
+ */
+int scheduler_can_schedule_now(scheduler_t *scheduler);
+
+/**
  * @brief   Tries to dispatch tasks in the scheduler's queue without going over its concurrency
  *          limit.
  * @details If dispatching a task fails, the scheduler won't try to reschedule that task later.
