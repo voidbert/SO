@@ -50,8 +50,8 @@ typedef struct tagged_task tagged_task_t;
 /**
  * @brief Creates a new task from a command line to be parsed.
  *
- * @param id            Identifier of the task.
  * @param command_line  Command line to parse.
+ * @param id            Identifier of the task.
  * @param expected_time Time the client expects this task to consume in execution.
  *
  * @return A new task on success, `NULL` on failure.
@@ -61,7 +61,31 @@ typedef struct tagged_task tagged_task_t;
  * | `EINVAL` | @p command_line is `NULL` or unparsable. |
  * | `ENOMEM` | Allocation failure.                      |
  */
-tagged_task_t *tagged_task_new(const char *command_line, uint32_t id, uint32_t expected_time);
+tagged_task_t *tagged_task_new_from_command_line(const char *command_line,
+                                                 uint32_t    id,
+                                                 uint32_t    expected_time);
+
+/**
+ * @brief Creates a new task from a procedure that is executed in a child process.
+ *
+ * @param procedure Procedure to run.
+ * @param state     Argument passed to @p procedure when its executed. No ownership of this data is
+ *                  taken.
+ * @param id            Identifier of the task.
+ * @param expected_time Time the client expects this task to consume in execution.
+ *
+ *
+ * @return A new task on success, `NULL` on failure.
+ *
+ * | `errno`  | Cause                                    |
+ * | -------- | ---------------------------------------- |
+ * | `EINVAL` | @p procedure is `NULL`.                  |
+ * | `ENOMEM` | Allocation failure.                      |
+ */
+tagged_task_t *tagged_task_new_from_procedure(task_procedure_t procedure,
+                                              void            *state,
+                                              uint32_t         id,
+                                              uint32_t         expected_time);
 
 /**
  * @brief  Creates a deep copy of a task.

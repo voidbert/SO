@@ -70,7 +70,8 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
 
     /* Try to create and schedule task */
     int            parsing_failure = 0;
-    tagged_task_t *task = tagged_task_new(command_line, state->next_task_id, fields->expected_time);
+    tagged_task_t *task =
+        tagged_task_new_from_command_line(command_line, state->next_task_id, fields->expected_time);
     if (!task && errno == EINVAL)
         parsing_failure = 1;
 

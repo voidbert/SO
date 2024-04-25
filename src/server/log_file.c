@@ -134,7 +134,8 @@ tagged_task_t *__log_file_deserialize_task(const log_file_serialized_task_t *in)
         return NULL;
     }
 
-    tagged_task_t *task = tagged_task_new(command_line, in->id, in->expected_time);
+    tagged_task_t *task =
+        tagged_task_new_from_command_line(command_line, in->id, in->expected_time);
     if (!task)
         return NULL; /* Keep ENOMEM */
 

@@ -79,6 +79,13 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
 
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(tagged_task_get_task(task), &nprograms);
+    if (!programs) {
+        task_procedure_t procedure;
+        void            *state;
+        (void) task_get_procedure(tagged_task_get_task(task), &procedure, &state);
+        return procedure(state);
+    }
+
     if (!nprograms)
         return 1;
 
