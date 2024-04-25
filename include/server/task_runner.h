@@ -35,6 +35,6 @@
  * @return 0 Success.
  * @return 1 Failure. `errno` is not set as the process `_exit()`s after calling this.
  */
-int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret);
+int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char *outputdir);
 
 #endif

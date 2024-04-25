@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "server/priority_queue.h"
 #include "server/scheduler.h"
@@ -62,11 +63,14 @@ typedef struct {
  *     @brief Maximum number of tasks scheduled concurrently.
  * @var scheduler::slots
  *     @brief Slots where to dispatch tasks (as many as ::scheduler::ntasks).
+ * @var scheduler::outputdir
+ *     @brief Path to output directory.
  */
 struct scheduler {
     priority_queue_t *queue;
     size_t            ntasks;
     scheduler_slot_t *slots;
+    char             *outputdir;
 };
 
 /** @brief ::priority_queue_compare_function_t for ::SCHEDULER_POLICY_FCFS. */
@@ -89,7 +93,7 @@ int __scheduler_compare_sjf(const tagged_task_t *a, const tagged_task_t *b) {
     return (int64_t) tagged_task_get_expected_time(a) - (int64_t) tagged_task_get_expected_time(b);
 }
 
-scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks) {
+scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, char *outputdir) {
     if (!ntasks)
         return NULL;
 
@@ -124,6 +128,17 @@ scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks) {
         ret->slots[i].available = 1;
 
     ret->ntasks = ntasks;
+
+    size_t dirpath_size = strlen(outputdir);
+    ret->outputdir = malloc(sizeof(char) * dirpath_size);
+    if(!ret->outputdir) {
+        priority_queue_free(ret->queue);
+        free(ret->slots);
+        free(ret);
+        return NULL; /* errno = ENOMEM guaranteed */
+    }
+    ret->outputdir = strdup(outputdir);
+
     return ret;
 }
 
@@ -137,6 +152,7 @@ void scheduler_free(scheduler_t *scheduler) {
     free(scheduler->slots);
 
     priority_queue_free(scheduler->queue);
+    free(scheduler->outputdir);
     free(scheduler);
 }
 
@@ -208,7 +224,10 @@ ssize_t scheduler_dispatch_possible(scheduler_t *scheduler) {
 
         pid_t p = fork();
         if (p == 0) {
-            _exit(task_runner_main(task, slot_search, scheduler->slots[slot_search].secret));
+            _exit(task_runner_main(task,
+                                   slot_search,
+                                   scheduler->slots[slot_search].secret,
+                                   scheduler->outputdir));
         } else if (p < 0) {
             fprintf(stderr,
                     "Task %" PRIu32 " was dropped: fork() failed\n",

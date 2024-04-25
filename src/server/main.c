@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #include "server/server_requests.h"
 
@@ -50,7 +52,8 @@ int main(int argc, char **argv) {
         (void) __main_help_message(argv[0]);
         return 0;
     } else if (argc == 4) {
-        /* TODO - create directory */
+        if (mkdir(argv[1], 0777) && errno != EEXIST)
+            return __main_help_message(argv[0]);
 
         char         *integer_end;
         unsigned long ntasks = strtoul(argv[2], &integer_end, 10);
@@ -65,7 +68,7 @@ int main(int argc, char **argv) {
         else
             return __main_help_message(argv[0]);
 
-        return server_requests_listen(policy, ntasks);
+        return server_requests_listen(policy, ntasks, argv[1]);
     } else {
         return __main_help_message(argv[0]);
     }

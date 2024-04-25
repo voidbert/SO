@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "protocol.h"
 #include "server/task_runner.h"
@@ -47,7 +48,7 @@ void __task_runner_wait_all_children(void) {
  * @retval 0 Success
  * @retval 1 `fork()` failure.
  */
-int __task_runner_spawn(const program_t *program, int in, int out) {
+int __task_runner_spawn(const program_t *program, int in, int out, int err) {
     const char *const *args = program_get_arguments(program);
     pid_t              p    = fork();
     if (p == 0) {
@@ -58,12 +59,11 @@ int __task_runner_spawn(const program_t *program, int in, int out) {
             close(in);
         }
 
-        if (out != STDOUT_FILENO) { /* TODO - remove if-statement when outputting to file */
-            dup2(out, STDOUT_FILENO);
-            close(out);
-        }
+        dup2(out, STDOUT_FILENO);
+        close(out);
 
-        /* TODO - support stderr duplication */
+        dup2(err, STDERR_FILENO);
+        close(err);
 
         execvp(args[0], (char *const *) (uintptr_t) args);
 
@@ -112,12 +112,19 @@ int __task_runner_warn_parent(size_t slot, uint64_t secret) {
     return 0;
 }
 
-int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
+int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char* outputdir) {
     uint32_t                task_id = tagged_task_get_id(task);
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(tagged_task_get_task(task), &nprograms);
     if (!nprograms)
         return 1;
+
+    /* Create error log file */
+    char errpath[snprintf(NULL, 0, "%s/task%" PRIu32 ".error", outputdir, task_id) + 1];
+    sprintf(errpath, "%s/task%" PRIu32 ".error", outputdir, task_id);
+    int err = open(errpath, O_CREAT | O_WRONLY, 0644);
+
+    printf("output dir : %s\n", outputdir);
 
     int in = 0;
     for (size_t i = 0; i < nprograms - 1; ++i) {
@@ -128,7 +135,7 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
             _exit(1);
         }
 
-        if (__task_runner_spawn(programs[i], in, fds[STDOUT_FILENO])) {
+        if (__task_runner_spawn(programs[i], in, fds[STDOUT_FILENO], err)) {
             fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
             __task_runner_wait_all_children(); /* May block forever */
             _exit(1);
@@ -138,7 +145,13 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
         close(fds[STDOUT_FILENO]);
         in = fds[STDIN_FILENO];
     }
-    __task_runner_spawn(programs[nprograms - 1], in, 1);
+
+    /* Create output file */
+    char outpath[snprintf(NULL, 0, "%s/task%" PRIu32 ".out", outputdir, task_id) + 1];
+    sprintf(outpath, "%s/task%" PRIu32 ".out", outputdir, task_id);
+    int out = open(outpath, O_CREAT | O_WRONLY, 0644);
+
+    __task_runner_spawn(programs[nprograms - 1], in, out, err);
 
     __task_runner_wait_all_children(); /* May block forever */
     return __task_runner_warn_parent(slot, secret);
