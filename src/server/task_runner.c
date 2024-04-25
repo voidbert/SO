@@ -38,6 +38,14 @@ void __task_runner_wait_all_children(void) {
 }
 
 /**
+ * @brief   Maximum number of connection reopenings when the other side of the pipe is closed
+ *          prematurely.
+ * @details This number must be high, as any communication failure means loss of server scheduling
+ *          capacity.
+ */
+#define TASK_RUNNER_WARN_PARENT_MAX_RETRIES 16
+
+/**
  * @brief   Communicates to the parent server that the task has terminated.
  * @details Errors will be outputted to `stderr`.
  *
@@ -64,7 +72,10 @@ int __task_runner_warn_parent(size_t slot, uint64_t secret) {
         return 1;
     }
 
-    if (ipc_send(ipc, &message, sizeof(protocol_task_done_message_t))) {
+    if (ipc_send_retry(ipc,
+                       &message,
+                       sizeof(protocol_task_done_message_t),
+                       TASK_RUNNER_WARN_PARENT_MAX_RETRIES)) {
         perror("Task completion communication: failed to write() message to server");
         ipc_free(ipc);
         return 1;
