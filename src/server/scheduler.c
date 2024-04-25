@@ -129,15 +129,13 @@ scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, char *outpu
 
     ret->ntasks = ntasks;
 
-    size_t dirpath_size = strlen(outputdir);
-    ret->outputdir = malloc(sizeof(char) * dirpath_size);
+    ret->outputdir = strdup(outputdir);
     if(!ret->outputdir) {
         priority_queue_free(ret->queue);
         free(ret->slots);
         free(ret);
         return NULL; /* errno = ENOMEM guaranteed */
     }
-    ret->outputdir = strdup(outputdir);
 
     return ret;
 }
