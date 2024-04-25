@@ -29,8 +29,9 @@
  * @brief   Open a listening connection and listens to incoming requests.
  * @details This procedure will output to `stderr` in case of error.
  *
- * @param policy Task scheduling policy.
- * @param ntasks Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param policy    Task scheduling policy.
+ * @param ntasks    Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param outputdir Directory path where to write output and error files.
  *
  * @returns This function only exits on failure (`1`, check `errno`). It keeps running otherwise.
  *

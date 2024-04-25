@@ -38,8 +38,9 @@ typedef struct scheduler scheduler_t;
 /**
  * @brief Creates a new scheduler.
  *
- * @param policy Scheduling policy.
- * @param ntasks Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param policy    Scheduling policy.
+ * @param ntasks    Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param outputdir Directory path where to write output and error files.
  *
  * @return A new scheduler on success, `NULL` on failure (check `errno`).
  *

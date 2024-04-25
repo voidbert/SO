@@ -44,6 +44,7 @@ void __task_runner_wait_all_children(void) {
  * @param program Program to be spawned.
  * @param in      Input file descriptor to be duplicated.
  * @param out     Output file descriptor to be duplicated.
+ * @param err     Error file descriptor to be duplicated.
  *
  * @retval 0 Success
  * @retval 1 `fork()` failure.
@@ -59,11 +60,15 @@ int __task_runner_spawn(const program_t *program, int in, int out, int err) {
             close(in);
         }
 
-        dup2(out, STDOUT_FILENO);
-        close(out);
+        if (out != STDOUT_FILENO) {
+            dup2(out, STDOUT_FILENO);
+            close(out);
+        }
 
-        dup2(err, STDERR_FILENO);
-        close(err);
+        if (err != STDERR_FILENO) {
+            dup2(err, STDERR_FILENO);
+            close(err);
+        }
 
         execvp(args[0], (char *const *) (uintptr_t) args);
 
@@ -119,12 +124,13 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char* ou
     if (!nprograms)
         return 1;
 
-    /* Create error log file */
     char errpath[snprintf(NULL, 0, "%s/task%" PRIu32 ".error", outputdir, task_id) + 1];
     sprintf(errpath, "%s/task%" PRIu32 ".error", outputdir, task_id);
     int err = open(errpath, O_CREAT | O_WRONLY, 0644);
-
-    printf("output dir : %s\n", outputdir);
+    if (err == -1) {
+        perror("Failed to create output file! Redirecting error messages to stderr");
+        err = STDERR_FILENO;
+    }
 
     int in = 0;
     for (size_t i = 0; i < nprograms - 1; ++i) {
@@ -146,13 +152,20 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char* ou
         in = fds[STDIN_FILENO];
     }
 
-    /* Create output file */
     char outpath[snprintf(NULL, 0, "%s/task%" PRIu32 ".out", outputdir, task_id) + 1];
     sprintf(outpath, "%s/task%" PRIu32 ".out", outputdir, task_id);
     int out = open(outpath, O_CREAT | O_WRONLY, 0644);
+    if (out == -1) {
+        perror("Failed to create output file! Redirecting output to stdout");
+        out = STDOUT_FILENO;
+    }
 
     __task_runner_spawn(programs[nprograms - 1], in, out, err);
 
     __task_runner_wait_all_children(); /* May block forever */
+
+    close(err);
+    close(out);
+
     return __task_runner_warn_parent(slot, secret);
 }

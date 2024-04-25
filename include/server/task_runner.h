@@ -27,10 +27,11 @@
 /**
  * @brief Entry point to the child that runs processes in tasks.
  *
- * @param task   Task to be run.
- * @param slot   Slot in the scheduler where this task was scheduled, used to identify this task
- *               when compeleted.
- * @param secret Secret random number needed to authenticate the termination of the task.
+ * @param task      Task to be run.
+ * @param slot      Slot in the scheduler where this task was scheduled, used to identify this task
+ *                  when compeleted.
+ * @param secret    Secret random number needed to authenticate the termination of the task.
+ * @param outputdir Directory path where to write output and error files.
  *
  * @return 0 Success.
  * @return 1 Failure. `errno` is not set as the process `_exit()`s after calling this.
