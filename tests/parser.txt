@@ -1,0 +1,13 @@
+0echo Hello
+0  echo  many  spaces   
+0'echo' "Hello, world"
+0'ech'"o" quotes  'to'"ge"'th''er'
+0echo '"Quotes" in quotes'
+1echo 'unclosed quotation marks 
+0echo "Simple \\\" escape sequence"
+0echo 'no \\ escape \\ sequences \\ here'
+0echo "more \' es\c\a\pe sequences \ ''\'"
+0echo single\\ argument\\ with\\ spaces another\\ argument \\\\
+1echo Should \" fail due    \" to unclosed escape sequence \
+0echo this   |   echo is|'echo' a ""|"echo" simple |echo pipe "" \|
+0echo empty "" arguments"" '' test ''|'echo' ''""
