@@ -50,4 +50,12 @@ int client_requests_send_program(const char *command_line, uint32_t expected_tim
  */
 int client_requests_send_task(const char *command_line, uint32_t expected_time);
 
+/**
+ * @brief Asks the server to send over its status.
+ * @details This procedure will output to `stderr` in case of error.
+ * @return The value to be returned by `main()`. No `errno` is unspecified, as all errors are
+ *         printed to `stderr`.
+ */
+int client_request_ask_status(void);
+
 #endif

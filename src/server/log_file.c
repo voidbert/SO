@@ -26,10 +26,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "protocol.h"
 #include "server/log_file.h"
-
-/* TODO - remove this when IPC is merged */
-#define PROTOCOL_MAXIMUM_COMMAND_LENGTH 1000
 
 /**
  * @struct log_file
@@ -55,6 +53,8 @@ struct log_file {
  *     @brief Length of string in log_file_serialized_task_t::command_line.
  * @var log_file_serialized_task_t::expected_time
  *     @brief See tagged_task::expected_time.
+ * @var log_file_serialized_task_t::error
+ *     @brief Whether an error occurred while running the task.
  * @var log_file_serialized_task_t::times
  *     @brief See tagged_task::times.
  * @var log_file_serialized_task_t::command_line
@@ -62,6 +62,7 @@ struct log_file {
  */
 typedef struct __attribute__((packed)) {
     uint32_t        id, command_length, expected_time;
+    uint8_t         error;
     struct timespec times[TAGGED_TASK_TIME_COMPLETED + 1];
     char            command_line[PROTOCOL_MAXIMUM_COMMAND_LENGTH];
 } log_file_serialized_task_t;
@@ -69,8 +70,9 @@ typedef struct __attribute__((packed)) {
 /**
  * @brief Serializes a ::tagged_task_t.
  *
- * @param in  Task to serialize.
- * @param out Where to write the serialized task to.
+ * @param in    Task to serialize.
+ * @param out   Where to write the serialized task to.
+ * @param error Whether an error occurred while running the task.
  *
  * @retval 0 Success.
  * @retval 1 Failure (check `errno`).
@@ -80,7 +82,7 @@ typedef struct __attribute__((packed)) {
  * | `EINVAL`   | @p in or @p out are `NULL`.              |
  * | `EMSGSIZE` | tagged_task_t::command_line is too long. |
  */
-int __log_file_serialize_task(const tagged_task_t *in, log_file_serialized_task_t *out) {
+int __log_file_serialize_task(const tagged_task_t *in, log_file_serialized_task_t *out, int error) {
     if (!in || !out) {
         errno = EINVAL;
         return 1;
@@ -88,6 +90,7 @@ int __log_file_serialize_task(const tagged_task_t *in, log_file_serialized_task_
 
     out->id            = tagged_task_get_id(in);
     out->expected_time = tagged_task_get_expected_time(in);
+    out->error         = error;
 
     memset(out->command_line, 0, PROTOCOL_MAXIMUM_COMMAND_LENGTH);
     const char *command_line = tagged_task_get_command_line(in);
@@ -136,7 +139,8 @@ tagged_task_t *__log_file_deserialize_task(const log_file_serialized_task_t *in)
         return NULL;
     }
 
-    tagged_task_t *task = tagged_task_new(command_line, in->id, in->expected_time);
+    tagged_task_t *task =
+        tagged_task_new_from_command_line(command_line, in->id, in->expected_time);
     if (!task)
         return NULL; /* Keep ENOMEM */
 
@@ -181,14 +185,14 @@ void log_file_free(log_file_t *log_file) {
     free(log_file);
 }
 
-int log_file_write_task(log_file_t *log_file, const tagged_task_t *task) {
+int log_file_write_task(log_file_t *log_file, const tagged_task_t *task, int error) {
     if (!task || !log_file || !log_file->writable) {
         errno = EINVAL;
         return 1;
     }
 
     log_file_serialized_task_t serialized;
-    if (__log_file_serialize_task(task, &serialized))
+    if (__log_file_serialize_task(task, &serialized, error))
         return 1; /* Keep errno */
 
     /* TODO - variable size message */
@@ -236,7 +240,7 @@ int log_file_read_tasks(log_file_t *log_file, log_file_task_callback_t task_cb, 
                 return 1;
             }
 
-            int cb_ret = task_cb(task, state);
+            int cb_ret = task_cb(task, serialized->error, state);
             if (cb_ret) {
                 tagged_task_free(task);
                 (void) lseek(log_file->fd, 0, SEEK_END);

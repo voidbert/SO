@@ -29,16 +29,25 @@
  * @brief  A single program or pipeline that must be executed.
  *
  * @var task::programs
- *     @brief Array of programs in the pipeline.
+ *     @brief   Array of programs in the pipeline.
+ *     @details Will be `NULL` if task::programs has a value.
  * @var task::length
  *     @brief Number of programs in task::programs.
  * @var task::capacity
  *     @brief Maximum number of programs in task::argv before reallocation.
+ * @var task::procedure
+ *     @brief   Procedure that constitutes the task.
+ *     @details Will be `NULL` if task::programs has a value.
+ * @var task::procedure_state
+ *     @brief Argument that will passed to task::procedure.
  */
 struct task {
     program_t **programs;
     size_t      length;
     size_t      capacity;
+
+    task_procedure_t procedure;
+    void            *procedure_state;
 };
 
 /** @brief Value of task::capacity for newly created empty tasks. */
@@ -81,6 +90,25 @@ task_t *task_new_from_programs(const program_t *const *programs, size_t length) 
         }
     }
 
+    ret->procedure       = NULL;
+    ret->procedure_state = NULL;
+    return ret;
+}
+
+task_t *task_new_from_procedure(task_procedure_t procedure, void *state) {
+    if (!procedure) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    task_t *ret = malloc(sizeof(task_t));
+    if (!ret)
+        return NULL; /* errno = ENOMEM guaranteed */
+
+    ret->programs = NULL;
+    ret->length = ret->capacity = 0;
+    ret->procedure              = procedure;
+    ret->procedure_state        = state;
     return ret;
 }
 
@@ -90,34 +118,26 @@ task_t *task_clone(const task_t *task) {
         return NULL;
     }
 
-    return task_new_from_programs((const program_t *const *) task->programs, task->length);
+    if (task->programs)
+        return task_new_from_programs((const program_t *const *) task->programs, task->length);
+    else
+        return task_new_from_procedure(task->procedure, task->procedure_state);
 }
 
 void task_free(task_t *task) {
     if (!task)
         return; /* Don't set EINVAL, as that's normal free behavior. */
 
-    for (size_t i = 0; i < task->length; ++i)
-        program_free(task->programs[i]);
-    free(task->programs);
+    if (task->programs) {
+        for (size_t i = 0; i < task->length; ++i)
+            program_free(task->programs[i]);
+        free(task->programs);
+    }
     free(task);
 }
 
-int task_equals(const task_t *a, const task_t *b) {
-    if (a == NULL || b == NULL)
-        return a == b;
-
-    if (a->length != b->length)
-        return 0;
-
-    for (size_t i = 0; i < a->length; ++i)
-        if (!program_equals(a->programs[i], b->programs[i]))
-            return 0;
-    return 1;
-}
-
 int task_add_program(task_t *task, const program_t *program) {
-    if (!task || !program) {
+    if (!task || !program || !task->programs) {
         errno = EINVAL;
         return 1;
     }
@@ -142,11 +162,22 @@ int task_add_program(task_t *task, const program_t *program) {
 }
 
 const program_t *const *task_get_programs(const task_t *task, size_t *count) {
-    if (!task || !count) {
+    if (!task || !count || !task->programs) {
         errno = EINVAL;
         return NULL;
     }
 
     *count = task->length;
     return (const program_t *const *) task->programs;
+}
+
+int task_get_procedure(const task_t *task, task_procedure_t *procedure, void **state) {
+    if (!task || !task->procedure) {
+        errno = EINVAL;
+        return 1;
+    }
+
+    *procedure = task->procedure;
+    *state     = task->procedure_state;
+    return 0;
 }

@@ -20,6 +20,7 @@
  */
 
 #include <errno.h>
+#include <math.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -91,4 +92,68 @@ int protocol_error_message_check_length(size_t length) {
 
 size_t protocol_error_message_get_error_length(size_t message_length) {
     return message_length - sizeof(uint8_t);
+}
+
+/**
+ * @brief Calculates the difference in microseconds between two `struct timespec`s.
+ *
+ * @param a Larger timestamp. Can be `NULL`.
+ * @param b Smaller timestamp. Can be `NULL`.
+ *
+ * @return `a - b` in microseconds, `NaN` if one of them is `NULL`.
+ */
+double __protocol_status_time_diff(const struct timespec *a, const struct timespec *b) {
+    if (!a || !b)
+        return NAN;
+    return (a->tv_sec - b->tv_sec) * 1000000.0 + (a->tv_nsec - b->tv_nsec) / 1000.0;
+}
+
+int protocol_status_response_message_new(
+    protocol_status_response_message_t *out,
+    size_t                             *out_size,
+    const char                         *command_line,
+    const struct timespec              *times[TAGGED_TASK_TIME_COMPLETED + 1]) {
+
+    if (!out || !out_size || !command_line || !times) {
+        errno = EINVAL;
+        return 1;
+    }
+
+    out->type = PROTOCOL_S2C_STATUS;
+
+    if (times[TAGGED_TASK_TIME_COMPLETED])
+        out->status = PROTOCOL_TASK_STATUS_DONE;
+    else if (times[TAGGED_TASK_TIME_DISPATCHED])
+        out->status = PROTOCOL_TASK_STATUS_EXECUTING;
+    else
+        out->status = PROTOCOL_TASK_STATUS_QUEUED;
+
+    out->time_c2s_fifo =
+        __protocol_status_time_diff(times[TAGGED_TASK_TIME_ARRIVED], times[TAGGED_TASK_TIME_SENT]);
+    out->time_waiting   = __protocol_status_time_diff(times[TAGGED_TASK_TIME_DISPATCHED],
+                                                    times[TAGGED_TASK_TIME_ARRIVED]);
+    out->time_executing = __protocol_status_time_diff(times[TAGGED_TASK_TIME_ENDED],
+                                                      times[TAGGED_TASK_TIME_DISPATCHED]);
+    out->time_s2s_fifo  = __protocol_status_time_diff(times[TAGGED_TASK_TIME_COMPLETED],
+                                                     times[TAGGED_TASK_TIME_ENDED]);
+
+    size_t len = strlen(command_line);
+    if (len > PROTOCOL_STATUS_MAXIMUM_LENGTH) {
+        errno = EMSGSIZE;
+        return 1;
+    }
+    memcpy(out->command_line, command_line, len);
+
+    *out_size = 2 * sizeof(uint8_t) + 4 * sizeof(double) + len;
+    return 0;
+}
+
+int protocol_status_response_message_check_length(size_t length) {
+    if (length <= 2 * sizeof(uint8_t) + 4 * sizeof(double) || length > IPC_MAXIMUM_MESSAGE_LENGTH)
+        return 0;
+    return 1;
+}
+
+size_t protocol_status_response_get_command_length(size_t message_length) {
+    return message_length - 2 * sizeof(uint8_t) - 4 * sizeof(double);
 }

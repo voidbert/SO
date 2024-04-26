@@ -46,9 +46,7 @@ int __main_help_message(const char *program_name) {
  */
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "status") == 0) {
-        /* TODO - implement client status */
-        fprintf(stderr, "Not implemented yet!\n");
-        return 1;
+        return client_request_ask_status();
     } else if (argc == 2 && strcmp(argv[1], "help") == 0) {
         (void) __main_help_message(argv[0]);
         return 0;

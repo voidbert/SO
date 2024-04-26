@@ -31,14 +31,15 @@ typedef struct log_file log_file_t;
  * @brief   Callback called for every task in a log file.
  * @details See ::log_file_read_tasks.
  *
- * @param task  Task read from file.
- * @param state Pointer passed to ::log_file_read_tasks so that this procedure can modify the
- *              program's state.
+ * @param task   Task read from file.
+ * @param error  Whether an error occurred while running the task.
+ * @param state  Pointer passed to ::log_file_read_tasks so that this procedure can modify the
+ *               program's state.
  *
  * @retval 0 Success.
  * @retval 1 Failure. Stop file iteration.
  */
-typedef int (*log_file_task_callback_t)(tagged_task_t *task, void *state);
+typedef int (*log_file_task_callback_t)(tagged_task_t *task, int error, void *state);
 
 /**
  * @brief   Opens a new log file for reading or for writing.
@@ -69,6 +70,7 @@ void log_file_free(log_file_t *log_file);
  *
  * @param log_file Log file to write to.
  * @param task     Task to be written.
+ * @param error    Whether an error occurred while running the task.
  *
  * @retval 0 Success.
  * @retval 1 Failure (check `errno`).
@@ -79,7 +81,7 @@ void log_file_free(log_file_t *log_file);
  * | `EMSGSIZE` | tagged_task_t::command_line is too long.                  |
  * | other      | See `man 2 write`.                                        |
  */
-int log_file_write_task(log_file_t *log_file, const tagged_task_t *task);
+int log_file_write_task(log_file_t *log_file, const tagged_task_t *task, int error);
 
 /**
  * @brief   Reads all tasks from a log file.
