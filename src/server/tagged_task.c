@@ -33,7 +33,8 @@
  * @var tagged_task::task
  *     @brief Actual pipeline of programs that need to be run.
  * @var tagged_task::command_line
- *     @brief Command line that was parsed to originate a task.
+ *     @brief Command line that was parsed to originate a task. This may be something else for
+ *            procedure tasks.
  * @var tagged_task::id
  *     @brief Identifier of the task.
  * @var tagged_task::expected_time
@@ -49,7 +50,9 @@ struct tagged_task {
     struct timespec times[TAGGED_TASK_TIME_COMPLETED + 1];
 };
 
-tagged_task_t *tagged_task_new(const char *command_line, uint32_t id, uint32_t expected_time) {
+tagged_task_t *tagged_task_new_from_command_line(const char *command_line,
+                                                 uint32_t    id,
+                                                 uint32_t    expected_time) {
     if (!command_line) {
         errno = EINVAL;
         return NULL;
@@ -70,6 +73,39 @@ tagged_task_t *tagged_task_new(const char *command_line, uint32_t id, uint32_t e
     }
 
     ret->task = command_parser_parse_task(command_line);
+    if (!ret->task) {
+        free(ret->command_line);
+        free(ret);
+        return NULL; /* errno = ENOMEM guaranteed */
+    }
+
+    return ret;
+}
+
+tagged_task_t *tagged_task_new_from_procedure(task_procedure_t procedure,
+                                              void            *state,
+                                              uint32_t         id,
+                                              uint32_t         expected_time) {
+    if (!procedure) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    tagged_task_t *ret = malloc(sizeof(tagged_task_t));
+    if (!ret)
+        return NULL; /* errno = ENOMEM guaranteed */
+
+    ret->id            = id;
+    ret->expected_time = expected_time;
+    memset(ret->times, 0, sizeof(ret->times));
+
+    ret->command_line = strdup("PROCEDURE TASK");
+    if (!ret->command_line) {
+        free(ret);
+        return NULL; /* errno = ENOMEM guaranteed */
+    }
+
+    ret->task = task_new_from_procedure(procedure, state);
     if (!ret->task) {
         free(ret->command_line);
         free(ret);

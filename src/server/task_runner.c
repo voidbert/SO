@@ -39,7 +39,7 @@ void __task_runner_wait_all_children(void) {
     }
 }
 
-/**
+/*
  * @brief Spawns a program with input and output file descriptors.
  *
  * @param program Program to be spawned.
@@ -82,22 +82,33 @@ int __task_runner_spawn(const program_t *program, int in, int out, int err) {
 }
 
 /**
+ * @brief   Maximum number of connection reopenings when the other side of the pipe is closed
+ *          prematurely.
+ * @details This number must be high, as any communication failure means loss of server scheduling
+ *          capacity.
+ */
+#define TASK_RUNNER_WARN_PARENT_MAX_RETRIES 16
+
+/**
  * @brief   Communicates to the parent server that the task has terminated.
  * @details Errors will be outputted to `stderr`.
  *
  * @param slot   Slot in the scheduler where this task was scheduled.
  * @param secret Secret random number needed to authenticate the termination of the task.
+ * @param error  Whether an error occurred while running the task.
  *
  * @retval 0 Success.
  * @retval 1 Failure (unspecified `errno`).
  */
-int __task_runner_warn_parent(size_t slot, uint64_t secret) {
+int __task_runner_warn_parent(size_t slot, uint64_t secret, int error) {
     struct timespec time_ended = {0};
     (void) clock_gettime(CLOCK_MONOTONIC, &time_ended);
     protocol_task_done_message_t message = {.type       = PROTOCOL_C2S_TASK_DONE,
                                             .slot       = slot,
                                             .secret     = secret,
-                                            .time_ended = time_ended};
+                                            .time_ended = time_ended,
+                                            .is_status  = 0,
+                                            .error      = error};
 
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_CLIENT);
     if (!ipc) {
@@ -108,7 +119,10 @@ int __task_runner_warn_parent(size_t slot, uint64_t secret) {
         return 1;
     }
 
-    if (ipc_send(ipc, &message, sizeof(protocol_task_done_message_t))) {
+    if (ipc_send_retry(ipc,
+                       &message,
+                       sizeof(protocol_task_done_message_t),
+                       TASK_RUNNER_WARN_PARENT_MAX_RETRIES)) {
         perror("Task completion communication: failed to write() message to server");
         ipc_free(ipc);
         return 1;
@@ -122,6 +136,13 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, const ch
     uint32_t                task_id = tagged_task_get_id(task);
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(tagged_task_get_task(task), &nprograms);
+    if (!programs) {
+        task_procedure_t procedure;
+        void            *state;
+        (void) task_get_procedure(tagged_task_get_task(task), &procedure, &state);
+        return procedure(state, slot, secret);
+    }
+
     if (!nprograms)
         return 1;
 
@@ -139,12 +160,14 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, const ch
         if (pipe(fds)) {
             fprintf(stderr, "pipe() failed running task %" PRIu32 "!\n", task_id);
             __task_runner_wait_all_children(); /* May block forever */
+            __task_runner_warn_parent(slot, secret, 1);
             _exit(1);
         }
 
         if (__task_runner_spawn(programs[i], in, fds[STDOUT_FILENO], err)) {
             fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
             __task_runner_wait_all_children(); /* May block forever */
+            __task_runner_warn_parent(slot, secret, 1);
             _exit(1);
         }
         if (i != 0) /* Don't close stdin */
@@ -168,5 +191,5 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, const ch
     close(err);
     close(out);
 
-    return __task_runner_warn_parent(slot, secret);
+    return __task_runner_warn_parent(slot, secret, 0);
 }

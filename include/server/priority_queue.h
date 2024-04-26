@@ -99,6 +99,16 @@ tagged_task_t *priority_queue_remove_top(priority_queue_t *queue);
 size_t priority_queue_element_count(const priority_queue_t *queue);
 
 /**
+ * @brief Gets all the tasks in a priority queue.
+ *
+ * @param queue  Queue to get tasks from. Mustn't be `NULL`.
+ * @param ntasks Where to write the number of tasks to. Mustn't be `NULL`.
+ *
+ * @return The elements in the queue, or `NULL` on failure (`errno = EINVAL`).
+ */
+const tagged_task_t *const *priority_queue_get_tasks(const priority_queue_t *queue, size_t *ntasks);
+
+/**
  * @brief Frees the memory used by a priority queue.
  * @param queue Queue to be freed.
  */

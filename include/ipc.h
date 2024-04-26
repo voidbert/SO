@@ -110,6 +110,36 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint);
 int ipc_send(ipc_t *ipc, const void *message, size_t length);
 
 /**
+ * @brief   Sends a message through IPC, retrying if pipe errors occur.
+ * @details Pipe error (synchronization error) recovery is important for the server child processes
+ *          that need to warn ther server they're about to terminate. If that message doens't get to
+ *          the server, it doesn't know that it can schedule more tasks.
+ *
+ *          This will write to `stderr` when errors are recovered from.
+ *
+ *          The signal handler for `SIGPIPE` will be replaced.
+ *
+ * @param ipc       Connection to send traffic through. Musyn't be `NULL`. If this is a
+ *                  ::IPC_ENDPOINT_SERVER connection, it must have been prepared for send data
+ *                  (::ipc_server_open_sending).
+ * @param message   Buffer containing data to send. Mustn't be `NULL`.
+ * @param length    Number of bytes in @p buf. Must be greater than zero and can't exceed
+ *                  ::IPC_MAXIMUM_MESSAGE_LENGTH.
+ * @param max_tries Maximum number of `write()` attempts (reconnection attempts plus one).
+ *
+ * @retval 0 Success (errors recovered from may have happened).
+ * @retval 1 Failure (check `errno`).
+ *
+ * | `errno`     | Cause                                                                                       |
+ * | ----------- |  ------------------------------------------------------------------------------------------ |
+ * | `EINVAL`    | @p ipc is `NULL` or not ready for writing, or @p message is `NULL`, or @p max_tries is `0`. |
+ * | `EMSGSIZE`  | Message either empty or too long.                                                           |
+ * | `ETIMEDOUT` | Maximum number of attempts reached.                                                         |
+ * | other       | See `man 2 write` or `man 2 open`.                                                          |
+ */
+int ipc_send_retry(ipc_t *ipc, const void *message, size_t length, unsigned int max_tries);
+
+/**
  * @brief   Prepares a connection on the server to send data to a client.
  * @details This will block the server if the client dies and stops listening to the pipe. We tried
  *          to prevent it by allowing the server to drop messages, but the professors would rather

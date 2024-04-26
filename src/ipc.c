@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,10 +54,14 @@
  * @var ipc::receive_fd
  *     @brief   The file descriptor to read from in order to receive data.
  *     @details Will be `-1` for any connection not actively being listened on.
+ * @var ipc::send_fd_pid
+ *     @brief   PID of the process the server is communicating with (only for ::IPC_ENDPOINT_SERVER)
+ *     @details Will be `-1` for new connection.
  */
 struct ipc {
     ipc_endpoint_t this_endpoint;
     int            send_fd, receive_fd;
+    pid_t          send_fd_pid;
 };
 
 /**
@@ -122,6 +127,7 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint) {
         /* Don't open the FIFO now, as that would block before before starting to listen. */
         ret->receive_fd = ret->send_fd = -1;
     }
+    ret->send_fd_pid = -1;
 
     return ret;
 }
@@ -160,6 +166,56 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length) {
     return 0;
 }
 
+int ipc_send_retry(ipc_t *ipc, const void *message, size_t length, unsigned int max_tries) {
+    if (!ipc || ipc->send_fd < 0 || !message || !max_tries) {
+        errno = EINVAL;
+        return 1;
+    }
+
+    if (length > IPC_MAXIMUM_MESSAGE_LENGTH || length == 0) {
+        errno = EMSGSIZE;
+        return 1;
+    }
+
+    uint8_t wrapped_message[PIPE_BUF];
+    ssize_t wrapped_message_length      = length + 2 * sizeof(uint32_t);
+    *((uint32_t *) wrapped_message)     = IPC_MESSAGE_HEADER_SIGNATURE;
+    *((uint32_t *) wrapped_message + 1) = (uint32_t) length;
+    memcpy(wrapped_message + 2 * sizeof(uint32_t), message, length);
+
+    (void) signal(SIGPIPE, SIG_IGN); /* No errors other than EINVAL */
+    unsigned int recovered = 0;
+    for (unsigned int i = 0; i < max_tries; ++i) {
+        if (write(ipc->send_fd, wrapped_message, wrapped_message_length) ==
+            wrapped_message_length) {
+
+            if (recovered)
+                fprintf(stderr,
+                        "IPC synchronization error recovered from (%u attempts)\n",
+                        recovered);
+            return 0;
+        }
+
+        if (errno == EPIPE || errno == EINTR) {
+            char fifo_path[PATH_MAX];
+            if (ipc->this_endpoint == IPC_ENDPOINT_SERVER)
+                snprintf(fifo_path, PATH_MAX, IPC_CLIENT_FIFO_PATH, (long) ipc->send_fd_pid);
+            else
+                strcpy(fifo_path, IPC_SERVER_FIFO_PATH);
+
+            if (((ipc->send_fd = open(fifo_path, O_WRONLY))) < 0)
+                return 1; /* Keep errno. Also this shouldn't fail */
+
+            recovered++;
+        } else {
+            return 1; /* Keep errno */
+        }
+    }
+
+    errno = ETIMEDOUT;
+    return 1;
+}
+
 int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid) {
     if (!ipc || ipc->this_endpoint != IPC_ENDPOINT_SERVER || ipc->send_fd > 0) {
         errno = EINVAL;
@@ -170,6 +226,7 @@ int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid) {
     snprintf(client_fifo_path, PATH_MAX, IPC_CLIENT_FIFO_PATH, (long) client_pid);
     if ((ipc->send_fd = open(client_fifo_path, O_WRONLY)) < 0)
         return 1; /* Keep errno */
+    ipc->send_fd_pid = client_pid;
     return 0;
 }
 
@@ -180,7 +237,8 @@ int ipc_server_close_sending(ipc_t *ipc) {
     }
 
     (void) close(ipc->send_fd);
-    ipc->send_fd = -1;
+    ipc->send_fd     = -1;
+    ipc->send_fd_pid = -1;
     return 0; /* Don't care about closing success */
 }
 

@@ -162,6 +162,13 @@ int scheduler_add_task(scheduler_t *scheduler, const tagged_task_t *task) {
     return priority_queue_insert(scheduler->queue, task);
 }
 
+int scheduler_can_schedule_now(scheduler_t *scheduler) {
+    for (size_t i = 0; i < scheduler->ntasks; ++i)
+        if (scheduler->slots[i].available)
+            return 1;
+    return 0;
+}
+
 /**
  * @brief   Generates a secret random number only known by the parent and child programs.
  * @details This aims to avoid DoS attacks where a client sends a message telling the server to wait
@@ -281,4 +288,41 @@ tagged_task_t *scheduler_mark_done(scheduler_t           *scheduler,
     scheduler->slots[slot].available = 1;
 
     return ret;
+}
+
+int scheduler_get_running_tasks(scheduler_t              *scheduler,
+                                scheduler_task_iterator_t callback,
+                                void                     *state) {
+    if (!scheduler || !callback) {
+        errno = EINVAL;
+        return 1;
+    }
+
+    for (size_t i = 0; i < scheduler->ntasks; ++i) {
+        if (!scheduler->slots[i].available) {
+            int cb_ret = callback(scheduler->slots[i].task, state);
+            if (cb_ret)
+                return cb_ret;
+        }
+    }
+    return 0;
+}
+
+int scheduler_get_scheduled_tasks(scheduler_t              *scheduler,
+                                  scheduler_task_iterator_t callback,
+                                  void                     *state) {
+    if (!scheduler || !callback) {
+        errno = EINVAL;
+        return 1;
+    }
+
+    size_t                      ntasks;
+    const tagged_task_t *const *tasks = priority_queue_get_tasks(scheduler->queue, &ntasks);
+
+    for (size_t i = 0; i < ntasks; ++i) {
+        int cb_ret = callback(tasks[i], state);
+        if (cb_ret)
+            return cb_ret;
+    }
+    return 0;
 }

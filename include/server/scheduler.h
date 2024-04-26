@@ -36,6 +36,17 @@ typedef enum {
 typedef struct scheduler scheduler_t;
 
 /**
+ * @brief Callback called for every task in a scheduler (queued or running).
+ *
+ * @param task  Task in scheduler.
+ * @param state Pointer argument so that this procedure can modify the program's state.
+ *
+ * @retval 0 Success.
+ * @retval 1 Failure. Stop tasks iteration.
+ */
+typedef int (*scheduler_task_iterator_t)(const tagged_task_t *task, void *state);
+
+/**
  * @brief Creates a new scheduler.
  *
  * @param policy    Scheduling policy.
@@ -74,6 +85,14 @@ void scheduler_free(scheduler_t *scheduler);
  * | `ENOMEM` | Allocation failure.                 |
  */
 int scheduler_add_task(scheduler_t *scheduler, const tagged_task_t *task);
+
+/**
+ * @brief  Returns whether a scheduler can start another task at the momement.
+ * @param  scheduler Scheduler to be checked.
+ * @retval 1 Yes.
+ * @retval 0 No.
+ */
+int scheduler_can_schedule_now(scheduler_t *scheduler);
 
 /**
  * @brief   Tries to dispatch tasks in the scheduler's queue without going over its concurrency
@@ -115,5 +134,35 @@ tagged_task_t *scheduler_mark_done(scheduler_t           *scheduler,
                                    size_t                 slot,
                                    uint64_t               secret,
                                    const struct timespec *time_ended);
+
+/**
+ * @brief Iterates through the tasks currently running in a scheduler.
+ *
+ * @param scheduler Schedules whose tasks are to be iterated through. Musn't be `NULL`.
+ * @param callback  Method to be called for every task. Musn't be `NULL`.
+ * @param state     Pointer passed to @p callback so that it can modify the program's state.
+ *
+ * @retval 0     Success.
+ * @retval 1     Failure (`errno = EINVAL`).
+ * @retval other Value returned by @p callback on failure.
+ */
+int scheduler_get_running_tasks(scheduler_t              *scheduler,
+                                scheduler_task_iterator_t callback,
+                                void                     *state);
+
+/**
+ * @brief Iterates through the tasks scheduled to run in a scheduler.
+ *
+ * @param scheduler Schedules whose tasks are to be iterated through. Musn't be `NULL`.
+ * @param callback  Method to be called for every task. Musn't be `NULL`.
+ * @param state     Pointer passed to @p callback so that it can modify the program's state.
+ *
+ * @retval 0     Success.
+ * @retval 1     Failure (`errno = EINVAL`).
+ * @retval other Value returned by @p callback on failure.
+ */
+int scheduler_get_scheduled_tasks(scheduler_t              *scheduler,
+                                  scheduler_task_iterator_t callback,
+                                  void                     *state);
 
 #endif
