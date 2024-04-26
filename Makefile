@@ -36,6 +36,7 @@ CLIENT_HEADERS = $(COMMON_HEADERS) $(shell find include/client -name '*.h' -type
 SERVER_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(SERVER_SOURCES))
 CLIENT_OBJECTS = $(patsubst src/%.c, $(OBJDIR)/%.o, $(CLIENT_SOURCES))
 
+REPORT  = $(patsubst report/%.tex, %.pdf, $(shell find report -name '*.tex' -type f))
 THEMES  = $(wildcard theme/*)
 DEPENDS = $(patsubst src/%.c, $(DEPDIR)/%.d, $(UNIQUE_SOURCES))
 
@@ -68,9 +69,9 @@ else ifneq (, $(filter client, $(MAKECMDGOALS)))
 else
 	INCLUDE_DEPENDS = N
 endif
-
+report: $(REPORT)
 default: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)
-all: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME) $(DOCSDIR)
+all: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME) $(DOCSDIR) $(REPORT)
 server: $(BUILDDIR)/$(SERVER_EXENAME)
 orchestrator: $(BUILDDIR)/$(SERVER_EXENAME)
 client: $(BUILDDIR)/$(CLIENT_EXENAME)
@@ -139,9 +140,15 @@ $(DOCSDIR): $(SERVER_SOURCES) $(CLIENT_SOURCES) $(SERVER_HEADERS) $(CLIENT_HEADE
 	echo "$$Doxyfile" | doxygen - 1> /dev/null
 	@touch $(DOCSDIR) # Update "last updated" time to now
 
+%.pdf: report/%.tex
+	$(eval TMP_LATEX = $(shell mktemp -d))
+	cd report && pdflatex -halt-on-error -output-directory $(TMP_LATEX) $(shell basename $<)
+	@cp $(TPM_LATEX)/$@ $@
+	@rm -r $(TPM_LATEX)
+
 .PHONY: clean
 clean:
-	rm -r $(BUILDDIR) $(DEPDIR) $(DOCSDIR) $(OBJDIR) 2> /dev/null ; true
+	rm -r $(BUILDDIR) $(DEPDIR) $(DOCSDIR) $(OBJDIR) $(REPORT) 2> /dev/null ; true
 
 install: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)
 	install -Dm 755 $(BUILDDIR)/$(SERVER_EXENAME) $(PREFIX)/bin
