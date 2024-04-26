@@ -281,7 +281,7 @@ int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char 
     }
 
     scheduler_t *status_scheduler =
-        scheduler_new(SCHEDULER_POLICY_FCFS, SERVER_REQUESTS_MAXIMUM_STATUS_TASKS);
+        scheduler_new(SCHEDULER_POLICY_FCFS, SERVER_REQUESTS_MAXIMUM_STATUS_TASKS, "");
     if (!status_scheduler) {
         fprintf(stderr, "Out of memory!\n");
         return 1; /* errno = EINVAL guaranteed */
