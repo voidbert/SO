@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -117,16 +118,16 @@ int __task_runner_warn_parent(size_t slot, uint64_t secret) {
     return 0;
 }
 
-int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char *outputdir) {
+int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, const char *outputdir) {
     uint32_t                task_id = tagged_task_get_id(task);
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(tagged_task_get_task(task), &nprograms);
     if (!nprograms)
         return 1;
 
-    char errpath[snprintf(NULL, 0, "%s/task%" PRIu32 ".error", outputdir, task_id) + 1];
-    sprintf(errpath, "%s/task%" PRIu32 ".error", outputdir, task_id);
-    int err = open(errpath, O_CREAT | O_WRONLY, 0644);
+    char errpath[PATH_MAX];
+    snprintf(errpath, PATH_MAX, "%s/task%" PRIu32 ".error", outputdir, task_id);
+    int err = open(errpath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (err == -1) {
         perror("Failed to create output file! Redirecting error messages to stderr");
         err = STDERR_FILENO;
@@ -152,9 +153,9 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, char *ou
         in = fds[STDIN_FILENO];
     }
 
-    char outpath[snprintf(NULL, 0, "%s/task%" PRIu32 ".out", outputdir, task_id) + 1];
-    sprintf(outpath, "%s/task%" PRIu32 ".out", outputdir, task_id);
-    int out = open(outpath, O_CREAT | O_WRONLY, 0644);
+    char outpath[PATH_MAX];
+    snprintf(outpath, PATH_MAX, "%s/task%" PRIu32 ".out", outputdir, task_id);
+    int out = open(outpath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     if (out == -1) {
         perror("Failed to create output file! Redirecting output to stdout");
         out = STDOUT_FILENO;

@@ -93,7 +93,7 @@ int __scheduler_compare_sjf(const tagged_task_t *a, const tagged_task_t *b) {
     return (int64_t) tagged_task_get_expected_time(a) - (int64_t) tagged_task_get_expected_time(b);
 }
 
-scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, char *outputdir) {
+scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, const char *outputdir) {
     if (!ntasks)
         return NULL;
 

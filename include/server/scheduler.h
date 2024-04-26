@@ -49,7 +49,7 @@ typedef struct scheduler scheduler_t;
  * | `EINVAL` | Invalid @p policy or @p ntasks. |
  * | `ENOMEM` | Allocation failure.             |
  */
-scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, char *outputdir);
+scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, const char *outputdir);
 
 /**
  * @brief   Frees memory used by a scheduler.

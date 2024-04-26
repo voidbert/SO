@@ -40,6 +40,6 @@
  * | `EINVAL` | Invalid @p policy or @p ntasks. |
  * | `ENOMEM` | Allocation failure.             |
  */
-int server_requests_listen(scheduler_policy_t policy, size_t ntasks, char *outputdir);
+int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char *outputdir);
 
 #endif

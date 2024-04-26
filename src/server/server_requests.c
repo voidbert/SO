@@ -197,7 +197,7 @@ int __server_requests_before_block(void *state_data) {
     return 0; /* Always keep listening for new connections */
 }
 
-int server_requests_listen(scheduler_policy_t policy, size_t ntasks, char *outputdir) {
+int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char *outputdir) {
     scheduler_t *scheduler = scheduler_new(policy, ntasks, outputdir);
     if (!scheduler) {
         fprintf(stderr, "Invalid number of concurrent tasks!\n");
