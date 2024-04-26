@@ -219,6 +219,17 @@ size_t priority_queue_element_count(const priority_queue_t *queue) {
     return queue->size;
 }
 
+const tagged_task_t *const *priority_queue_get_tasks(const priority_queue_t *queue,
+                                                     size_t                 *ntasks) {
+    if (!queue || !ntasks) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    *ntasks = queue->size;
+    return (const tagged_task_t *const *) queue->values;
+}
+
 void priority_queue_free(priority_queue_t *queue) {
     if (!queue)
         return; /* Don't set errno, as frees typically don't do that */
