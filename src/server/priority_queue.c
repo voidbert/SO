@@ -20,17 +20,16 @@
  */
 
 #include <errno.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #include "server/priority_queue.h"
 
 /**
  * @struct priority_queue
- * @brief  Stores all the data inside a priority queue.
+ * @brief  A priority queue of tasks.
  *
  * @var priority_queue::values
- *     @brief Array of pointers to ::tagged_task_t values.
+ *     @brief Tasks in the queue, respecting the binary heap (minheap) invariants.
  * @var priority_queue::size
  *     @brief Number of elements in ::priority_queue::values.
  * @var priority_queue::capacity
@@ -46,8 +45,8 @@ struct priority_queue {
     priority_queue_compare_function_t cmp_func;
 };
 
-/** @brief Initial priority_queue::capacity for the array priority_queue::values. */
-#define PRIORITY_QUEUE_VALUES_INITIAL_SIZE 32
+/** @brief Initial value of priority_queue::capacity. */
+#define PRIORITY_QUEUE_INITIAL_CAPACITY 32
 
 priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func) {
     if (!cmp_func) {
@@ -61,7 +60,7 @@ priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func)
 
     new_queue->cmp_func = cmp_func;
     new_queue->size     = 0;
-    new_queue->capacity = PRIORITY_QUEUE_VALUES_INITIAL_SIZE;
+    new_queue->capacity = PRIORITY_QUEUE_INITIAL_CAPACITY;
     new_queue->values   = malloc(new_queue->capacity * sizeof(tagged_task_t *));
     if (!new_queue->values) {
         free(new_queue);
@@ -69,6 +68,17 @@ priority_queue_t *priority_queue_new(priority_queue_compare_function_t cmp_func)
     }
 
     return new_queue;
+}
+
+void priority_queue_free(priority_queue_t *queue) {
+    if (!queue)
+        return; /* Don't set errno, as frees typically don't do that */
+
+    for (size_t i = 0; i < queue->size; ++i)
+        tagged_task_free(queue->values[i]);
+
+    free(queue->values);
+    free(queue);
 }
 
 priority_queue_t *priority_queue_clone(const priority_queue_t *queue) {
@@ -98,7 +108,7 @@ priority_queue_t *priority_queue_clone(const priority_queue_t *queue) {
 
             free(queue_clone->values);
             free(queue_clone);
-            return NULL;
+            return NULL; /* errno = ENOMEM guaranteed */
         }
     }
 
@@ -106,7 +116,7 @@ priority_queue_t *priority_queue_clone(const priority_queue_t *queue) {
 }
 
 /**
- * @brief Swaps the values from two memory locations.
+ * @brief Swaps queue values in two memory locations.
  * @param a Memory location to store the value pointed to by @p b.
  * @param b Memory location to store the value pointed to by @p a.
  */
@@ -117,17 +127,17 @@ void __priority_queue_swap(tagged_task_t **a, tagged_task_t **b) {
 }
 
 /**
- * @brief   Reorganizes a min-heap to keep its properties after an insertion.
+ * @brief   Reorganizes a min-heap to keep its invariants after an insertion.
  * @details Auxiliary method to ::priority_queue_insert.
  *
- * @param queue     Queue to be reorganized.
- * @param placement Index of the previously inserted element.
+ * @param queue     Queue to be reorganized. Mustn't be `NULL`.
+ * @param placement Index of the previously inserted element. Must be in-bounds.
  *
  * @retval 0 Success.
- * @retval 1 Failure because @p queue is `NULL`.
+ * @retval 1 Failure because @p queue is `NULL` or @p placement is out-of-bounds (`errno = EINVAL`).
  */
 int __priority_queue_insert_bubble_up(priority_queue_t *queue, size_t placement) {
-    if (!queue) {
+    if (!queue || placement >= queue->size) {
         errno = EINVAL;
         return 1;
     }
@@ -164,14 +174,14 @@ int priority_queue_insert(priority_queue_t *queue, const tagged_task_t *element)
 }
 
 /**
- * @brief   Reorganizes a min-heap to keep its properties after the removal of the top element.
+ * @brief   Reorganizes a min-heap to keep its properties after the removal of an element.
  * @details Auxiliary method to ::priority_queue_remove_top.
  *
- * @param queue   Queue to be reorganized.
- * @param removal Index of the removed element.
+ * @param queue   Queue to be reorganized. Mustn't be `NULL`.
+ * @param removal Index of the removed element. Must be in-bounds.
  *
  * @retval 0 Success.
- * @retval 1 Failure because @p queue is `NULL` or @p removal is out-of-bounds.
+ * @retval 1 Failure because @p queue is `NULL` or @p removal is out-of-bounds (`errno = EINVAL`).
  */
 int __priority_queue_remove_bubble_down(priority_queue_t *queue, size_t removal) {
     if (!queue || removal >= queue->size) {
@@ -213,12 +223,6 @@ tagged_task_t *priority_queue_remove_top(priority_queue_t *queue) {
     return ret;
 }
 
-size_t priority_queue_element_count(const priority_queue_t *queue) {
-    if (!queue)
-        return (size_t) -1;
-    return queue->size;
-}
-
 const tagged_task_t *const *priority_queue_get_tasks(const priority_queue_t *queue,
                                                      size_t                 *ntasks) {
     if (!queue || !ntasks) {
@@ -228,15 +232,4 @@ const tagged_task_t *const *priority_queue_get_tasks(const priority_queue_t *que
 
     *ntasks = queue->size;
     return (const tagged_task_t *const *) queue->values;
-}
-
-void priority_queue_free(priority_queue_t *queue) {
-    if (!queue)
-        return; /* Don't set errno, as frees typically don't do that */
-
-    for (size_t i = 0; i < queue->size; ++i)
-        tagged_task_free(queue->values[i]);
-
-    free(queue->values);
-    free(queue);
 }
