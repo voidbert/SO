@@ -123,7 +123,7 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
         task_procedure_t procedure;
         void            *state;
         (void) task_get_procedure(tagged_task_get_task(task), &procedure, &state);
-        return procedure(state);
+        return procedure(state, slot, secret);
     }
 
     if (!nprograms)

@@ -23,6 +23,7 @@
 #ifndef TASK_H
 #define TASK_H
 
+#include <inttypes.h>
 #include <sys/types.h>
 
 #include "server/program.h"
@@ -31,11 +32,15 @@
 typedef struct task task_t;
 
 /**
- * @brief  Type of procedure that can be a task run in a child process.
- * @param  state Pointer to the program's state, so that the process can read it.
+ * @brief Type of procedure that can be a task run in a child process.
+ *
+ * @param state  Pointer to the program's state, so that the process can read it.
+ * @param slot   Slot where the task was scheduled.
+ * @param secret Secret number to authenticate the termination of the task.
+ *
  * @return The exit code of the child process.
  */
-typedef int (*task_procedure_t)(void *state);
+typedef int (*task_procedure_t)(void *state, size_t slot, uint64_t secret);
 
 /**
  * @brief   Creates a empty task composed of programs.
