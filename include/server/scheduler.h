@@ -49,8 +49,9 @@ typedef int (*scheduler_task_iterator_t)(const tagged_task_t *task, void *state)
 /**
  * @brief Creates a new scheduler.
  *
- * @param policy Scheduling policy.
- * @param ntasks Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param policy    Scheduling policy.
+ * @param ntasks    Maximum number of tasks scheduled concurrently. Can't be `0`.
+ * @param outputdir Directory path where to write output and error files.
  *
  * @return A new scheduler on success, `NULL` on failure (check `errno`).
  *
@@ -59,7 +60,7 @@ typedef int (*scheduler_task_iterator_t)(const tagged_task_t *task, void *state)
  * | `EINVAL` | Invalid @p policy or @p ntasks. |
  * | `ENOMEM` | Allocation failure.             |
  */
-scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks);
+scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, const char *outputdir);
 
 /**
  * @brief   Frees memory used by a scheduler.

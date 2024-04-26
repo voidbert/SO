@@ -273,14 +273,15 @@ int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char 
         return 1;
     }
 
-    scheduler_t *scheduler = scheduler_new(policy, ntasks);
+    scheduler_t *scheduler = scheduler_new(policy, ntasks, directory);
+
     if (!scheduler) {
         fprintf(stderr, "Invalid policy or number of concurrent tasks!\n");
         return 1; /* errno = EINVAL guaranteed */
     }
 
     scheduler_t *status_scheduler =
-        scheduler_new(SCHEDULER_POLICY_FCFS, SERVER_REQUESTS_MAXIMUM_STATUS_TASKS);
+        scheduler_new(SCHEDULER_POLICY_FCFS, SERVER_REQUESTS_MAXIMUM_STATUS_TASKS, "");
     if (!status_scheduler) {
         fprintf(stderr, "Out of memory!\n");
         return 1; /* errno = EINVAL guaranteed */

@@ -20,6 +20,8 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -43,11 +45,12 @@ void __task_runner_wait_all_children(void) {
  * @param program Program to be spawned.
  * @param in      Input file descriptor to be duplicated.
  * @param out     Output file descriptor to be duplicated.
+ * @param err     Error file descriptor to be duplicated.
  *
  * @retval 0 Success
  * @retval 1 `fork()` failure.
  */
-int __task_runner_spawn(const program_t *program, int in, int out) {
+int __task_runner_spawn(const program_t *program, int in, int out, int err) {
     const char *const *args = program_get_arguments(program);
     pid_t              p    = fork();
     if (p == 0) {
@@ -58,12 +61,15 @@ int __task_runner_spawn(const program_t *program, int in, int out) {
             close(in);
         }
 
-        if (out != STDOUT_FILENO) { /* TODO - remove if-statement when outputting to file */
+        if (out != STDOUT_FILENO) {
             dup2(out, STDOUT_FILENO);
             close(out);
         }
 
-        /* TODO - support stderr duplication */
+        if (err != STDERR_FILENO) {
+            dup2(err, STDERR_FILENO);
+            close(err);
+        }
 
         execvp(args[0], (char *const *) (uintptr_t) args);
 
@@ -126,7 +132,7 @@ int __task_runner_warn_parent(size_t slot, uint64_t secret, int error) {
     return 0;
 }
 
-int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
+int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, const char *outputdir) {
     uint32_t                task_id = tagged_task_get_id(task);
     size_t                  nprograms;
     const program_t *const *programs = task_get_programs(tagged_task_get_task(task), &nprograms);
@@ -140,6 +146,22 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
     if (!nprograms)
         return 1;
 
+    char outpath[PATH_MAX];
+    snprintf(outpath, PATH_MAX, "%s/%" PRIu32 ".out", outputdir, task_id);
+    int out = open(outpath, O_CREAT | O_WRONLY | O_TRUNC, 0640);
+    if (out == -1) {
+        perror("Failed to create output file! Redirecting output to stdout");
+        out = STDOUT_FILENO;
+    }
+
+    char errpath[PATH_MAX];
+    snprintf(errpath, PATH_MAX, "%s/%" PRIu32 ".err", outputdir, task_id);
+    int err = open(errpath, O_CREAT | O_WRONLY | O_TRUNC, 0640);
+    if (err < 0) {
+        perror("Failed to create output file! Redirecting error messages to stderr");
+        err = STDERR_FILENO;
+    }
+
     int in = 0;
     for (size_t i = 0; i < nprograms - 1; ++i) {
         int fds[2];
@@ -150,7 +172,7 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
             _exit(1);
         }
 
-        if (__task_runner_spawn(programs[i], in, fds[STDOUT_FILENO])) {
+        if (__task_runner_spawn(programs[i], in, fds[STDOUT_FILENO], err)) {
             fprintf(stderr, "fork() failed running task %" PRIu32 "!\n", task_id);
             __task_runner_wait_all_children(); /* May block forever */
             __task_runner_warn_parent(slot, secret, 1);
@@ -161,8 +183,13 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret) {
         close(fds[STDOUT_FILENO]);
         in = fds[STDIN_FILENO];
     }
-    __task_runner_spawn(programs[nprograms - 1], in, 1);
+
+    __task_runner_spawn(programs[nprograms - 1], in, out, err);
 
     __task_runner_wait_all_children(); /* May block forever */
+
+    close(err);
+    close(out);
+
     return __task_runner_warn_parent(slot, secret, 0);
 }
