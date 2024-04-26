@@ -24,8 +24,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "util.h"
 #include "server/server_requests.h"
+#include "util.h"
 
 /**
  * @brief  Prints the usage of the orchestrator program to `stderr`.
@@ -35,8 +35,7 @@
 int __main_help_message(const char *program_name) {
     util_error("Usage:\n");
     util_error("  See this message: %s help\n", program_name);
-    util_error("  Run server:       %s (output folder) (number of tasks) (policy)\n",
-               program_name);
+    util_error("  Run server:       %s (output folder) (number of tasks) (policy)\n", program_name);
     util_error("    where policy = fcfs | sjf\n");
     return 1;
 }
