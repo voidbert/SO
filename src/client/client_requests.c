@@ -102,7 +102,8 @@ void __client_request_on_status_message(uint8_t *message, size_t length) {
  * @param length  Number of bytes in @p message. Must be greater than `0` (unchecked).
  * @param state   Always `NULL`.
  *
- * @retval 0 Always, even on error, not to drop any message.
+ * @retval 0 Success.
+ * @retval 1 Failure (error message from client).
  */
 int __client_requests_on_message(uint8_t *message, size_t length, void *state) {
     (void) state;
@@ -120,6 +121,7 @@ int __client_requests_on_message(uint8_t *message, size_t length, void *state) {
             (void) !write(STDERR_FILENO,
                           fields->error,
                           protocol_error_message_get_error_length(length));
+            return 2;
         } break;
 
         case PROTOCOL_S2C_TASK_ID: {
@@ -195,11 +197,13 @@ int __client_requests_send_program_task(const char *command_line,
         return 1;
     }
 
-    if (ipc_listen(ipc, __client_requests_on_message, __client_requests_before_block, NULL) == 1)
+    int listen_res =
+        ipc_listen(ipc, __client_requests_on_message, __client_requests_before_block, NULL);
+    if (listen_res == 1)
         perror("open() error");
 
     ipc_free(ipc);
-    return 0;
+    return listen_res == 2; /* 2 -> server failure */
 }
 
 int client_requests_send_program(const char *command_line, uint32_t expected_time) {
