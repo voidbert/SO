@@ -21,26 +21,31 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "protocol.h"
 #include "server/log_file.h"
+#include "util.h"
 
 /**
  * @struct log_file
- * @brief  A handle for a log file.
+ * @brief  A handle for an open log file.
  *
  * @var log_file::fd
  *     @brief   File descriptor of the open log file.
- *     @details Must be kept at the end of the file.
+ *     @details Its offset must always be kept at the end of the file.
  * @var log_file::writable
  *     @brief Whether it's possible to `write()` to log_file::fd.
+ * @var log_file::task_count
+ *     @brief   The number of tasks written to a file.
+ *     @details For synchronization purposes, as children that read the server's status mustn't read
+ *              more from the file that what was there when `fork()` was called.
  */
 struct log_file {
-    int fd, writable;
+    int    fd, writable;
+    size_t task_count;
 };
 
 /**
@@ -54,7 +59,7 @@ struct log_file {
  * @var log_file_serialized_task_t::expected_time
  *     @brief See tagged_task::expected_time.
  * @var log_file_serialized_task_t::error
- *     @brief Whether an error occurred while running the task.
+ *     @brief Whether an error occurred while running this task.
  * @var log_file_serialized_task_t::times
  *     @brief See tagged_task::times.
  * @var log_file_serialized_task_t::command_line
@@ -70,7 +75,7 @@ typedef struct __attribute__((packed)) {
 /**
  * @brief Serializes a ::tagged_task_t.
  *
- * @param in    Task to serialize.
+ * @param task  Task to serialize.
  * @param out   Where to write the serialized task to.
  * @param error Whether an error occurred while running the task.
  *
@@ -79,42 +84,43 @@ typedef struct __attribute__((packed)) {
  *
  * | `errno`    | Cause                                    |
  * | ---------- | ---------------------------------------- |
- * | `EINVAL`   | @p in or @p out are `NULL`.              |
+ * | `EINVAL`   | @p task or @p out are `NULL`.            |
  * | `EMSGSIZE` | tagged_task_t::command_line is too long. |
  */
-int __log_file_serialize_task(const tagged_task_t *in, log_file_serialized_task_t *out, int error) {
-    if (!in || !out) {
+int __log_file_serialize_task(const tagged_task_t        *task,
+                              log_file_serialized_task_t *out,
+                              int                         error) {
+    if (!task || !out) {
         errno = EINVAL;
         return 1;
     }
 
-    out->id            = tagged_task_get_id(in);
-    out->expected_time = tagged_task_get_expected_time(in);
-    out->error         = error;
-
-    memset(out->command_line, 0, PROTOCOL_MAXIMUM_COMMAND_LENGTH);
-    const char *command_line = tagged_task_get_command_line(in);
+    const char *command_line = tagged_task_get_command_line(task);
     out->command_length      = strlen(command_line);
     if (out->command_length > PROTOCOL_MAXIMUM_COMMAND_LENGTH) {
         errno = EMSGSIZE;
         return 1;
     }
+    memset(out->command_line, 0, PROTOCOL_MAXIMUM_COMMAND_LENGTH);
     memcpy(out->command_line, command_line, out->command_length);
 
+    out->id            = tagged_task_get_id(task);
+    out->expected_time = tagged_task_get_expected_time(task);
+    out->error         = error;
+
     for (tagged_task_time_t i = TAGGED_TASK_TIME_SENT; i <= TAGGED_TASK_TIME_COMPLETED; ++i) {
-        const struct timespec *time = tagged_task_get_time(in, i);
+        const struct timespec *time = tagged_task_get_time(task, i);
         if (time)
             out->times[i] = *time;
         else
             out->times[i].tv_sec = out->times[i].tv_nsec = 0;
     }
-
     return 0;
 }
 
 /**
  * @brief Deserializes a task in a log file.
- * @param in Serialized task to deserialize.
+ * @param task Serialized task to deserialize.
  *
  * @return A task owned by the caller on success, `NULL` on failure (check `errno`).
  *
@@ -124,32 +130,32 @@ int __log_file_serialize_task(const tagged_task_t *in, log_file_serialized_task_
  * | `EMSGSIZE` | Invalid serialized task with very long command line. |
  * | `ENOMEM`   | Allocation failure.                                  |
  */
-tagged_task_t *__log_file_deserialize_task(const log_file_serialized_task_t *in) {
-    if (!in) {
+tagged_task_t *__log_file_deserialize_task(const log_file_serialized_task_t *task) {
+    if (!task) {
         errno = EINVAL;
         return NULL;
     }
 
     char command_line[PROTOCOL_MAXIMUM_COMMAND_LENGTH + 1];
-    if (in->command_length <= PROTOCOL_MAXIMUM_COMMAND_LENGTH) {
-        memcpy(command_line, in->command_line, in->command_length);
-        command_line[in->command_length] = '\0';
+    if (task->command_length <= PROTOCOL_MAXIMUM_COMMAND_LENGTH) {
+        memcpy(command_line, task->command_line, task->command_length);
+        command_line[task->command_length] = '\0';
     } else {
         errno = EMSGSIZE;
         return NULL;
     }
 
-    tagged_task_t *task =
-        tagged_task_new_from_command_line(command_line, in->id, in->expected_time);
+    tagged_task_t *ret =
+        tagged_task_new_from_command_line(command_line, task->id, task->expected_time);
     if (!task)
         return NULL; /* Keep ENOMEM */
 
     for (tagged_task_time_t i = TAGGED_TASK_TIME_SENT; i <= TAGGED_TASK_TIME_COMPLETED; ++i) {
-        struct timespec aligned_copy = in->times[i];
-        (void) tagged_task_set_time(task, i, &aligned_copy);
+        struct timespec aligned_copy = task->times[i];
+        tagged_task_set_time(ret, i, &aligned_copy);
     }
 
-    return task;
+    return ret;
 }
 
 log_file_t *log_file_new(const char *path, int writable) {
@@ -164,9 +170,10 @@ log_file_t *log_file_new(const char *path, int writable) {
         return NULL;
     }
 
-    log_file->writable = writable;
+    log_file->writable   = writable;
+    log_file->task_count = 0;
     if (writable)
-        log_file->fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+        log_file->fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0640);
     else
         log_file->fd = open(path, O_RDONLY);
 
@@ -195,14 +202,14 @@ int log_file_write_task(log_file_t *log_file, const tagged_task_t *task, int err
     if (__log_file_serialize_task(task, &serialized, error))
         return 1; /* Keep errno */
 
-    /* TODO - variable size message */
     if (write(log_file->fd, &serialized, sizeof(log_file_serialized_task_t)) !=
         sizeof(log_file_serialized_task_t)) /* No partial write risk */
         return 1;                           /* Keep errno */
+    log_file->task_count++;
     return 0;
 }
 
-/** @brief Number of bytes read in ::log_file_read_tasks */
+/** @brief Number of bytes read in ::log_file_read_tasks. */
 #define LOG_FILE_READ_BUFFER_SIZE (4 * sizeof(log_file_serialized_task_t))
 
 int log_file_read_tasks(log_file_t *log_file, log_file_task_callback_t task_cb, void *state) {
@@ -215,11 +222,12 @@ int log_file_read_tasks(log_file_t *log_file, log_file_task_callback_t task_cb, 
         return 1;
 
     uint8_t buf[LOG_FILE_READ_BUFFER_SIZE];
-    ssize_t bytes_read = 0;
+    ssize_t bytes_read      = 0;
+    size_t  outputted_tasks = 0;
     while ((bytes_read = read(log_file->fd, buf, LOG_FILE_READ_BUFFER_SIZE))) {
         size_t tasks_read = bytes_read / sizeof(log_file_serialized_task_t);
         if (bytes_read % sizeof(log_file_serialized_task_t) != 0) {
-            fprintf(stderr, "Read too many / few bytes for task in log file\n");
+            util_error("%s(): read too many / few bytes for task in log file\n", __func__);
             (void) lseek(log_file->fd, 0, SEEK_END);
             errno = EILSEQ;
             return 1;
@@ -230,7 +238,7 @@ int log_file_read_tasks(log_file_t *log_file, log_file_task_callback_t task_cb, 
             tagged_task_t              *task       = __log_file_deserialize_task(serialized);
             if (!task) {
                 int errno2 = errno;
-                fprintf(stderr, "Log file: task deserialization failure!\n");
+                util_error("%s(): task deserialization failure!\n", __func__);
                 (void) lseek(log_file->fd, 0, SEEK_END);
 
                 if (errno2 == ENOMEM)
@@ -248,6 +256,10 @@ int log_file_read_tasks(log_file_t *log_file, log_file_task_callback_t task_cb, 
             }
 
             tagged_task_free(task);
+
+            outputted_tasks++;
+            if (outputted_tasks == log_file->task_count)
+                break;
         }
     }
 

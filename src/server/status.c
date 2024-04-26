@@ -66,7 +66,7 @@ int __status_send_message(ipc_t *ipc, int error, const tagged_task_t *task) {
  *
  * @retval 0 Always successful, ignoring `write()` errors.
  */
-int __status_foreach_log_entry(tagged_task_t *task, int error, void *state_ipc) {
+int __status_foreach_log_entry(const tagged_task_t *task, int error, void *state_ipc) {
     (void) __status_send_message(state_ipc, error, task); /* Ignore writing failures */
     return 0;
 }
