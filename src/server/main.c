@@ -52,8 +52,9 @@ int main(int argc, char **argv) {
         (void) __main_help_message(argv[0]);
         return 0;
     } else if (argc == 4) {
-        if (mkdir(argv[1], 0777) && errno != EEXIST)
-            return __main_help_message(argv[0]);
+        if (mkdir(argv[1], 0700) && errno != EEXIST) {
+            perror("Failed to create server's directory");
+        }
 
         char         *integer_end;
         unsigned long ntasks = strtoul(argv[2], &integer_end, 10);

@@ -146,10 +146,18 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, const ch
     if (!nprograms)
         return 1;
 
+    char outpath[PATH_MAX];
+    snprintf(outpath, PATH_MAX, "%s/%" PRIu32 ".out", outputdir, task_id);
+    int out = open(outpath, O_CREAT | O_WRONLY | O_TRUNC, 0640);
+    if (out == -1) {
+        perror("Failed to create output file! Redirecting output to stdout");
+        out = STDOUT_FILENO;
+    }
+
     char errpath[PATH_MAX];
-    snprintf(errpath, PATH_MAX, "%s/task%" PRIu32 ".error", outputdir, task_id);
-    int err = open(errpath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    if (err == -1) {
+    snprintf(errpath, PATH_MAX, "%s/%" PRIu32 ".err", outputdir, task_id);
+    int err = open(errpath, O_CREAT | O_WRONLY | O_TRUNC, 0640);
+    if (err < 0) {
         perror("Failed to create output file! Redirecting error messages to stderr");
         err = STDERR_FILENO;
     }
@@ -174,14 +182,6 @@ int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret, const ch
             close(in);
         close(fds[STDOUT_FILENO]);
         in = fds[STDIN_FILENO];
-    }
-
-    char outpath[PATH_MAX];
-    snprintf(outpath, PATH_MAX, "%s/task%" PRIu32 ".out", outputdir, task_id);
-    int out = open(outpath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    if (out == -1) {
-        perror("Failed to create output file! Redirecting output to stdout");
-        out = STDOUT_FILENO;
     }
 
     __task_runner_spawn(programs[nprograms - 1], in, out, err);
