@@ -19,8 +19,8 @@
  * @brief A priority queue for tasks.
  */
 
-#ifndef PRIORITY_QUEUE
-#define PRIORITY_QUEUE
+#ifndef PRIORITY_QUEUE_H
+#define PRIORITY_QUEUE_H
 
 #include <stddef.h>
 
