@@ -28,11 +28,6 @@
     /** @cond FALSE */
     #define __attribute__()
     /** @endcond */
-#else
-    /*
-     * Many methods don't work if the compiler doesn't support the removal of struct padding.
-     * However, there is no standard way of throwing an error to warn the user.
-     */
 #endif
 
 /**
@@ -40,14 +35,14 @@
  * @param format Format string (like `printf`).
  * @param ...    Values to be replaced in @p format.
  */
-void util_log(const char *format, ...);
+void util_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 /**
  * @brief Writes a message to `stderr`.
  * @param format Format string (like `printf`).
  * @param ...    Values to be replaced in @p format.
  */
-void util_error(const char *format, ...);
+void util_error(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 /**
  * @brief `perror` replacement.

@@ -61,6 +61,6 @@ void util_perror(const char *user_msg) {
         if (user_msg && *user_msg)
             util_error("%s: %s\n", user_msg, error_msg);
         else
-            util_error("%s: %s\n", error_msg);
+            util_error("%s\n", error_msg);
     }
 }
