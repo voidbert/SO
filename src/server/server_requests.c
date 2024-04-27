@@ -255,7 +255,7 @@ int __server_requests_on_message(uint8_t *message, size_t length, void *state_da
             __server_requests_on_status_message(state, message, length);
             break;
         default:
-            util_error("__server_requests_on_message(): message with bad type received!\n");
+            util_error("%s(): message with bad type received!\n", __func__);
             break;
     }
 

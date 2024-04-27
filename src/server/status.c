@@ -62,12 +62,12 @@ int __status_send_message(ipc_t *ipc, int error, const tagged_task_t *task) {
     protocol_status_response_message_t message;
     size_t                             message_length;
     if (protocol_status_response_message_new(&message,
-                                                &message_length,
-                                                tagged_task_get_command_line(task),
-                                                tagged_task_get_id(task),
-                                                error,
-                                                times)) {
-        (void )protocol_status_response_message_new(&message,
+                                             &message_length,
+                                             tagged_task_get_command_line(task),
+                                             tagged_task_get_id(task),
+                                             error,
+                                             times)) {
+        (void) protocol_status_response_message_new(&message,
                                                     &message_length,
                                                     "COMMAND LINE TOO LONG",
                                                     tagged_task_get_id(task),
