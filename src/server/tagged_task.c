@@ -28,13 +28,13 @@
 
 /**
  * @struct tagged_task
- * @brief  A task (see ::task_t) with extra information about its arrival and execution time.
+ * @brief  A task (see ::task_t) with extra information needed for task management.
  *
  * @var tagged_task::task
- *     @brief Actual pipeline of programs that need to be run.
+ *     @brief Task (single program / pipeline / procedure) that needs to be run.
  * @var tagged_task::command_line
- *     @brief Command line that was parsed to originate a task. This may be something else for
- *            procedure tasks.
+ *     @brief  Command line that was parsed to originate a task.
+ *     @details This will have another value for procedure tasks.
  * @var tagged_task::id
  *     @brief Identifier of the task.
  * @var tagged_task::expected_time
@@ -76,7 +76,7 @@ tagged_task_t *tagged_task_new_from_command_line(const char *command_line,
     if (!ret->task) {
         free(ret->command_line);
         free(ret);
-        return NULL; /* errno = ENOMEM guaranteed */
+        return NULL; /* EILSEQ or ENOMEM */
     }
 
     return ret;
@@ -115,7 +115,21 @@ tagged_task_t *tagged_task_new_from_procedure(task_procedure_t procedure,
     return ret;
 }
 
+void tagged_task_free(tagged_task_t *task) {
+    if (!task)
+        return; /* Don't set errno, as that's not typical free behavior */
+
+    task_free(task->task);
+    free(task->command_line);
+    free(task);
+}
+
 tagged_task_t *tagged_task_clone(const tagged_task_t *task) {
+    if (!task) {
+        errno = EINVAL;
+        return NULL;
+    }
+
     tagged_task_t *ret = malloc(sizeof(tagged_task_t));
     if (!ret)
         return NULL; /* errno = ENOMEM guaranteed */
@@ -138,15 +152,6 @@ tagged_task_t *tagged_task_clone(const tagged_task_t *task) {
     }
 
     return ret;
-}
-
-void tagged_task_free(tagged_task_t *task) {
-    if (!task)
-        return; /* Don't set errno, as that's not typical free behavior */
-
-    task_free(task->task);
-    free(task->command_line);
-    free(task);
 }
 
 const task_t *tagged_task_get_task(const tagged_task_t *task) {
@@ -181,18 +186,18 @@ uint32_t tagged_task_get_expected_time(const tagged_task_t *task) {
     return task->expected_time;
 }
 
-const struct timespec *tagged_task_get_time(const tagged_task_t *task, tagged_task_time_t time) {
-    if (!task || time < 0 || time > TAGGED_TASK_TIME_COMPLETED) {
+const struct timespec *tagged_task_get_time(const tagged_task_t *task, tagged_task_time_t id) {
+    if (!task || id < 0 || id > TAGGED_TASK_TIME_COMPLETED) {
         errno = EINVAL;
         return NULL;
     }
 
-    if (task->times[time].tv_sec == 0 && task->times[time].tv_nsec == 0) {
+    if (task->times[id].tv_sec == 0 && task->times[id].tv_nsec == 0) {
         errno = EDOM;
         return NULL;
     }
 
-    return task->times + time;
+    return task->times + id;
 }
 
 int tagged_task_set_time(tagged_task_t *task, tagged_task_time_t id, const struct timespec *time) {
