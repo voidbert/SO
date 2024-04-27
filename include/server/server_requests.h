@@ -16,7 +16,8 @@
 
 /**
  * @file    server/server_requests.h
- * @brief   Emitter and handler of requests from the server to the clients.
+ * @brief   Emitter of requests from the server to the client and handler of requests in the
+ *          opposite direction.
  * @details Read the assignment's report for the specification of the protocol used.
  */
 
@@ -26,7 +27,7 @@
 #include "server/scheduler.h"
 
 /**
- * @brief   Open a listening connection and listens to incoming requests.
+ * @brief   Opens a listening connection and listens to incoming requests.
  * @details This procedure will output to `stderr` in case of error.
  *
  * @param policy    Task scheduling policy.

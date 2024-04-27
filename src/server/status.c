@@ -126,10 +126,7 @@ int __status_warn_parent(size_t slot) {
         return 1;
     }
 
-    if (ipc_send_retry(ipc,
-                       &message,
-                       sizeof(protocol_task_done_message_t),
-                       STATUS_MAX_RETRIES)) {
+    if (ipc_send_retry(ipc, &message, sizeof(protocol_task_done_message_t), STATUS_MAX_RETRIES)) {
         util_perror("__staus_warn_parent(): error while sending message to parent");
         ipc_free(ipc);
         return 1;

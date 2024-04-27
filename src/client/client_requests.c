@@ -27,15 +27,22 @@
 
 #include "client/client_requests.h"
 #include "protocol.h"
+#include "util.h"
+
+/**
+ * @brief Maximum number of connection openings when the other side of the pipe is closed
+ *        prematurely.
+ */
+#define CLIENT_REQUESTS_MAX_RETRIES 16
 
 /**
  * @brief Chooses the adequate unit to represent time.
- * @param time Time, in microseconds, to be represented.
+ * @param time Time to be represented, in microseconds.
  * @param out  Where to output formatted time to.
  */
 void __client_request_print_time_unit(double time, char *out) {
     if (time >= 1000000.0)
-        sprintf(out, "%.3lfs", time / 1000000.0);
+        sprintf(out, "%10.3lfs", time / 1000000.0);
     else if (time >= 1000.0)
         sprintf(out, "%.3lfms", time / 1000.0);
     else if (isnan(time))
@@ -52,15 +59,15 @@ void __client_request_print_time_unit(double time, char *out) {
  * @param length  Number of bytes in @p message.
  */
 void __client_request_on_status_message(uint8_t *message, size_t length) {
-    if (!protocol_status_response_message_check_length(length)) {
-        fprintf(stderr, "Invalid S2C_STATUS message received!\n");
+    size_t command_length;
+    if (!protocol_status_response_message_check_length(length, &command_length)) {
+        util_error("%s(): invalid message received!\n", __func__);
         return;
     }
     protocol_status_response_message_t *fields = (protocol_status_response_message_t *) message;
 
     /* Fix non-terminated string */
-    char   command_line[PROTOCOL_STATUS_MAXIMUM_LENGTH + 1];
-    size_t command_length = protocol_status_response_get_command_length(length);
+    char command_line[PROTOCOL_STATUS_MAXIMUM_LENGTH + 1];
     memcpy(command_line, fields->command_line, command_length);
     command_line[command_length] = '\0';
 
@@ -86,13 +93,13 @@ void __client_request_on_status_message(uint8_t *message, size_t length) {
     __client_request_print_time_unit(fields->time_executing, time_executing_str);
     __client_request_print_time_unit(fields->time_s2s_fifo, time_s2s_fifo_str);
 
-    printf("(%s) \"%s\" %s %s %s %s\n",
-           status_str,
-           command_line,
-           time_c2s_fifo_str,
-           time_waiting_str,
-           time_executing_str,
-           time_s2s_fifo_str);
+    util_log("(%s) \"%s\" %s %s %s %s\n",
+             status_str,
+             command_line,
+             time_c2s_fifo_str,
+             time_waiting_str,
+             time_executing_str,
+             time_s2s_fifo_str);
 }
 
 /**
@@ -111,25 +118,24 @@ int __client_requests_on_message(uint8_t *message, size_t length, void *state) {
     protocol_s2c_msg_type type = message[0];
     switch (type) {
         case PROTOCOL_S2C_ERROR: {
-            if (!protocol_error_message_check_length(length)) {
-                fprintf(stderr, "Invalid S2C_ERROR message received!\n");
+            size_t error_length;
+            if (!protocol_error_message_check_length(length, &error_length)) {
+                util_error("%s(): invalid S2C_ERROR message received!\n", __func__);
                 return 0;
             }
 
             protocol_error_message_t *fields = (protocol_error_message_t *) message;
-            (void) !write(STDERR_FILENO,
-                          fields->error,
-                          protocol_error_message_get_error_length(length));
+            (void) !write(STDERR_FILENO, fields->error, error_length);
         } break;
 
         case PROTOCOL_S2C_TASK_ID: {
             if (length != sizeof(protocol_task_id_message_t)) {
-                fprintf(stderr, "Invalid S2C_TASK_ID message received!\n");
+                util_error("%s(): invalid S2C_TASK_ID message received!\n", __func__);
                 return 0;
             }
 
             protocol_task_id_message_t *fields = (protocol_task_id_message_t *) message;
-            printf("Task %" PRIu32 " scheduled\n", fields->id);
+            util_log("Task %" PRIu32 " scheduled\n", fields->id);
         } break;
 
         case PROTOCOL_S2C_STATUS:
@@ -137,7 +143,7 @@ int __client_requests_on_message(uint8_t *message, size_t length, void *state) {
             break;
 
         default:
-            fprintf(stderr, "Message with bad type received!\n");
+            util_error("%s(): message with bad type received!\n", __func__);
             break;
     }
 
@@ -145,8 +151,8 @@ int __client_requests_on_message(uint8_t *message, size_t length, void *state) {
 }
 
 /**
- * @brief Called before waiting for new connections, which are always refused.
- * @param state Always `NULL`.
+ * @brief  Called before waiting for new connections, which are always refused.
+ * @param  state Always `NULL`.
  * @retval -1 Refuse connection.
  */
 int __client_requests_before_block(void *state) {
@@ -167,7 +173,6 @@ int __client_requests_before_block(void *state) {
 int __client_requests_send_program_task(const char *command_line,
                                         uint32_t    expected_time,
                                         int         multiprogram) {
-
     size_t                               message_size;
     protocol_send_program_task_message_t message;
     if (protocol_send_program_task_message_new(&message,
@@ -176,28 +181,27 @@ int __client_requests_send_program_task(const char *command_line,
                                                command_line,
                                                expected_time)) {
         /* Assume command_line isn't NULL for error message */
-        fprintf(stderr, "Command empty or too long (max: %ld)!\n", PROTOCOL_MAXIMUM_COMMAND_LENGTH);
+        util_error("Command empty or too long (max: %ld)!\n", PROTOCOL_MAXIMUM_COMMAND_LENGTH);
         return 1;
     }
 
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_CLIENT);
     if (!ipc) {
         if (errno == ENOENT)
-            fprintf(stderr, "Server's FIFO not found. Is the server running?\n");
+            util_error("Server's FIFO not found. Is the server running?\n");
         else
-            perror("Failed to open() server's FIFO");
+            util_perror("client_request_ask_status(): failed to open() server's FIFO");
         return 1;
     }
 
     if (ipc_send(ipc, &message, message_size)) {
-        perror("Failed to write() message to server");
+        util_perror("client_request_ask_status(): failed to send message to server");
         ipc_free(ipc);
         return 1;
     }
 
     if (ipc_listen(ipc, __client_requests_on_message, __client_requests_before_block, NULL) == 1)
-        perror("open() error");
-
+        util_perror("client_requests_ask_status(): error opening connection");
     ipc_free(ipc);
     return 0;
 }
@@ -214,24 +218,25 @@ int client_request_ask_status(void) {
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_CLIENT);
     if (!ipc) {
         if (errno == ENOENT)
-            fprintf(stderr, "Server's FIFO not found. Is the server running?\n");
+            util_error("Server's FIFO not found. Is the server running?\n");
         else
-            perror("Failed to open() server's FIFO");
+            util_perror("client_request_ask_status(): failed to open() server's FIFO");
         return 1;
     }
 
     protocol_status_request_message_t message = {.type       = PROTOCOL_C2S_STATUS,
                                                  .client_pid = getpid()};
-
-    if (ipc_send(ipc, &message, sizeof(protocol_status_request_message_t))) {
-        perror("Failed to write() message to server");
+    if (ipc_send_retry(ipc,
+                       &message,
+                       sizeof(protocol_status_request_message_t),
+                       CLIENT_REQUESTS_MAX_RETRIES)) {
+        util_perror("client_request_ask_status(): failed to send message to server");
         ipc_free(ipc);
         return 1;
     }
 
     if (ipc_listen(ipc, __client_requests_on_message, __client_requests_before_block, NULL) == 1)
-        perror("open() error");
-
+        util_perror("client_requests_ask_status(): error opening connection");
     ipc_free(ipc);
     return 0;
 }
