@@ -69,8 +69,9 @@ else ifneq (, $(filter client, $(MAKECMDGOALS)))
 else
 	INCLUDE_DEPENDS = N
 endif
-report: $(REPORT)
+
 default: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)
+report: $(REPORT)
 all: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME) $(DOCSDIR) $(REPORT)
 server: $(BUILDDIR)/$(SERVER_EXENAME)
 orchestrator: $(BUILDDIR)/$(SERVER_EXENAME)
