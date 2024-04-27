@@ -149,8 +149,7 @@ void __server_requests_on_done_message(server_state_t *state, uint8_t *message, 
 
     scheduler_t *target_scheduler = fields->is_status ? state->status_scheduler : state->scheduler;
     struct timespec time_ended    = fields->time_ended;
-    tagged_task_t  *task =
-        scheduler_mark_done(target_scheduler, fields->slot, fields->secret, &time_ended);
+    tagged_task_t  *task = scheduler_mark_done(target_scheduler, fields->slot, &time_ended);
     if (!task) {
         fprintf(stderr, "C2S_TASK_DONE message with invalid slot / secret!\n");
         return;

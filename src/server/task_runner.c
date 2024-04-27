@@ -120,7 +120,7 @@ int __task_runner_warn_parent(size_t slot, int error) {
 
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_CLIENT);
     if (!ipc) {
-        util_perror("__task_runner_warn_parent(): opening connection");
+        util_perror("__task_runner_warn_parent(): error while opening connection");
         return 1;
     }
 
@@ -128,7 +128,7 @@ int __task_runner_warn_parent(size_t slot, int error) {
                        &message,
                        sizeof(protocol_task_done_message_t),
                        TASK_RUNNER_WARN_PARENT_MAX_RETRIES)) {
-        util_perror("__task_runner_warn_parent(): opening writing");
+        util_perror("__task_runner_warn_parent(): error while sending message");
         ipc_free(ipc);
         return 1;
     }
