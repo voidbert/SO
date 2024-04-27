@@ -22,8 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "util.h"
 #include "client/client_requests.h"
+#include "util.h"
 
 /**
  * @brief  Prints the usage of the client program to `stderr`.

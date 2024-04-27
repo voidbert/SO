@@ -35,9 +35,9 @@
 #ifndef __GNUC__
     /** @cond FALSE */
     #define __attribute__()
-    /** @endcond */
+/** @endcond */
 #else
-    /*
+/*
      * The program may break if the compiler doesn't support the removal of struct padding. However,
      * there is no standard way of throwing an error to warn the user.
      */
@@ -91,7 +91,7 @@ struct ipc {
  */
 typedef struct __attribute__((packed)) {
     uint32_t signature, payload_length;
-    uint8_t message[IPC_MAXIMUM_MESSAGE_LENGTH];
+    uint8_t  message[IPC_MAXIMUM_MESSAGE_LENGTH];
 } ipc_frame_t;
 
 /**
