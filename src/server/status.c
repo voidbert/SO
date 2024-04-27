@@ -61,12 +61,19 @@ int __status_send_message(ipc_t *ipc, int error, const tagged_task_t *task) {
 
     protocol_status_response_message_t message;
     size_t                             message_length;
-    (void) protocol_status_response_message_new(&message,
+    if (protocol_status_response_message_new(&message,
                                                 &message_length,
                                                 tagged_task_get_command_line(task),
                                                 tagged_task_get_id(task),
                                                 error,
-                                                times);
+                                                times)) {
+        (void )protocol_status_response_message_new(&message,
+                                                    &message_length,
+                                                    "COMMAND LINE TOO LONG",
+                                                    tagged_task_get_id(task),
+                                                    error,
+                                                    times);
+    }
 
     if (ipc_send_retry(ipc, &message, message_length, STATUS_MAX_RETRIES)) {
         util_perror("__status_send_message(): error while sending message to client");
