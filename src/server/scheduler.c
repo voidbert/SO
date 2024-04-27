@@ -20,8 +20,7 @@
  */
 
 #include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
@@ -30,6 +29,7 @@
 #include "server/priority_queue.h"
 #include "server/scheduler.h"
 #include "server/task_runner.h"
+#include "util.h"
 
 /**
  * @struct scheduler_slot_t
@@ -41,21 +41,16 @@
  *     @brief PID of task running in this slot (only if this slot is unavailable).
  * @var scheduler_slot_t::task
  *     @brief Task running in the slot (only if this slot is unavailable).
- * @var scheduler_slot_t::secret
- *     @brief A secret random number shared only by the parent and child program, checked when a
- *            task terminates to avoid DoS attacks (messages to the server asking it to wait for
- *            an unfinished process).
  */
 typedef struct {
     int            available;
     pid_t          pid;
     tagged_task_t *task;
-    uint64_t       secret;
 } scheduler_slot_t;
 
 /**
  * @struct scheduler
- * @brief  A scheduler and dispatcher of tasks (::task_t).
+ * @brief  A scheduler and dispatcher of tasks (::tagged_task_t).
  *
  * @var scheduler::queue
  *     @brief Queue of tasks awaiting CPU time.
@@ -63,14 +58,14 @@ typedef struct {
  *     @brief Maximum number of tasks scheduled concurrently.
  * @var scheduler::slots
  *     @brief Slots where to dispatch tasks (as many as ::scheduler::ntasks).
- * @var scheduler::outputdir
+ * @var scheduler::directory
  *     @brief Path to output directory.
  */
 struct scheduler {
     priority_queue_t *queue;
     size_t            ntasks;
     scheduler_slot_t *slots;
-    char             *outputdir;
+    char             *directory;
 };
 
 /** @brief ::priority_queue_compare_function_t for ::SCHEDULER_POLICY_FCFS. */
@@ -93,9 +88,11 @@ int __scheduler_compare_sjf(const tagged_task_t *a, const tagged_task_t *b) {
     return (int64_t) tagged_task_get_expected_time(a) - (int64_t) tagged_task_get_expected_time(b);
 }
 
-scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, const char *outputdir) {
-    if (!ntasks)
+scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, const char *directory) {
+    if (!ntasks || !directory) {
+        errno = EINVAL;
         return NULL;
+    }
 
     scheduler_t *ret = malloc(sizeof(scheduler_t));
     if (!ret)
@@ -129,8 +126,8 @@ scheduler_t *scheduler_new(scheduler_policy_t policy, size_t ntasks, const char 
 
     ret->ntasks = ntasks;
 
-    ret->outputdir = strdup(outputdir);
-    if (!ret->outputdir) {
+    ret->directory = strdup(directory);
+    if (!ret->directory) {
         priority_queue_free(ret->queue);
         free(ret->slots);
         free(ret);
@@ -150,7 +147,7 @@ void scheduler_free(scheduler_t *scheduler) {
     free(scheduler->slots);
 
     priority_queue_free(scheduler->queue);
-    free(scheduler->outputdir);
+    free(scheduler->directory);
     free(scheduler);
 }
 
@@ -169,40 +166,15 @@ int scheduler_can_schedule_now(scheduler_t *scheduler) {
     return 0;
 }
 
-/**
- * @brief   Generates a secret random number only known by the parent and child programs.
- * @details This aims to avoid DoS attacks where a client sends a message telling the server to wait
- *          for a program that hasn't finished, thereby blocking the server. The default C PRNG
- *          (`rand`, less secure) will be used if `/dev/urandom` doesn't exist.
- * @return A randomly generated `uint64_t`.
- */
-uint64_t __scheduler_generate_secret(void) {
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) {
-        return rand(); /* Fallback prone random number generator attacks */
-    }
-
-    uint64_t rng;
-    ssize_t  read_bytes = read(fd, &rng, sizeof(uint64_t));
-    if (read_bytes != sizeof(rng)) {
-        close(fd);
-        return rand(); /* Fallback prone random number generator attacks */
-    }
-
-    close(fd);
-    return rng;
-}
-
 ssize_t scheduler_dispatch_possible(scheduler_t *scheduler) {
     if (!scheduler) {
         errno = EINVAL;
-        return -1;
+        return 1;
     }
 
     tagged_task_t *task;
     size_t         slot_search = 0, dispatched = 0;
     while ((task = priority_queue_remove_top(scheduler->queue))) {
-
         /* Find slot where to schedule the task */
         for (; slot_search < scheduler->ntasks; ++slot_search)
             if (scheduler->slots[slot_search].available)
@@ -210,11 +182,11 @@ ssize_t scheduler_dispatch_possible(scheduler_t *scheduler) {
 
         if (slot_search == scheduler->ntasks) { /* Can't schedule: reeinsert the task */
             if (priority_queue_insert(scheduler->queue, task)) {
-                fprintf(stderr,
-                        "Task %" PRIu32 " was dropped: out of memory\n",
-                        tagged_task_get_id(task));
+                util_error("%s(): Task %" PRIu32 " was dropped: out of memory\n",
+                           __func__,
+                           tagged_task_get_id(task));
                 tagged_task_free(task);
-                return -1;
+                return 1;
             }
 
             tagged_task_free(task);
@@ -225,20 +197,19 @@ ssize_t scheduler_dispatch_possible(scheduler_t *scheduler) {
 
         scheduler->slots[slot_search].available = 0;
         scheduler->slots[slot_search].task      = task;
-        scheduler->slots[slot_search].secret    = __scheduler_generate_secret();
 
         pid_t p = fork();
         if (p == 0) {
-            _exit(task_runner_main(task,
-                                   slot_search,
-                                   scheduler->slots[slot_search].secret,
-                                   scheduler->outputdir));
+            _exit(task_runner_main(task, slot_search, scheduler->directory));
         } else if (p < 0) {
-            fprintf(stderr,
-                    "Task %" PRIu32 " was dropped: fork() failed\n",
-                    tagged_task_get_id(task));
+            char error_msg[LINE_MAX] = {0};
+            (void) strerror_r(errno, error_msg, LINE_MAX);
+            util_error("%s(): Task %" PRIu32 " was dropped: fork() failed: %s\n",
+                       __func__,
+                       tagged_task_get_id(task),
+                       error_msg);
             tagged_task_free(task);
-            return -1;
+            return 1;
         } else {
             scheduler->slots[slot_search].pid = p;
         }
@@ -250,10 +221,8 @@ ssize_t scheduler_dispatch_possible(scheduler_t *scheduler) {
     return (ssize_t) dispatched;
 }
 
-tagged_task_t *scheduler_mark_done(scheduler_t           *scheduler,
-                                   size_t                 slot,
-                                   uint64_t               secret,
-                                   const struct timespec *time_ended) {
+tagged_task_t *
+    scheduler_mark_done(scheduler_t *scheduler, size_t slot, const struct timespec *time_ended) {
     if (!scheduler || !time_ended) {
         errno = EINVAL;
         return NULL;
@@ -264,19 +233,10 @@ tagged_task_t *scheduler_mark_done(scheduler_t           *scheduler,
         return NULL;
     }
 
-    if (scheduler->slots[slot].secret != secret) {
-        errno = EWOULDBLOCK;
-        return NULL;
-    }
-
     if (waitpid(scheduler->slots[slot].pid, NULL, 0) < 0) {
-        /* TODO - ask professor about EINTR failure */
-
-        /* wait() failed. Still make the slot available but return a failure. */
-        fprintf(stderr,
-                "waitpid(%ld) failed for (task %" PRIu32 ")!\n",
-                (long) scheduler->slots[slot].pid,
-                tagged_task_get_id(scheduler->slots[slot].task));
+        util_error("waitpid(%ld) failed for (task %" PRIu32 ")!\n",
+                   (long) scheduler->slots[slot].pid,
+                   tagged_task_get_id(scheduler->slots[slot].task));
         tagged_task_free(scheduler->slots[slot].task);
         scheduler->slots[slot].available = 1;
         return NULL; /* Keep errno */
