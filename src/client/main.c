@@ -19,30 +19,30 @@
  * @brief Contains the entry point to the client program.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "util.h"
 #include "client/client_requests.h"
 
 /**
- * @brief  Prints the usage of the program to `stderr`.
+ * @brief  Prints the usage of the client program to `stderr`.
  * @param  program_name `argv[0]`.
  * @return Always `1`.
  */
 int __main_help_message(const char *program_name) {
-    fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  See this message:    %s help\n", program_name);
-    fprintf(stderr, "  Query server status: %s status\n", program_name);
-    fprintf(stderr, "  Run single program:  %s execute (time) -u (command line)\n", program_name);
-    fprintf(stderr, "  Run pipeline:        %s execute (time) -p (command line)\n", program_name);
+    util_error("Usage:\n");
+    util_error("  See this message:    %s help\n", program_name);
+    util_error("  Query server status: %s status\n", program_name);
+    util_error("  Run single program:  %s execute (time) -u (command line)\n", program_name);
+    util_error("  Run pipeline:        %s execute (time) -p (command line)\n", program_name);
     return 1;
 }
 
 /**
- * @brief  The entry point to the program.
- * @retval 0 Success
- * @retval 1 Insuccess
+ * @brief  The entry point to the client program.
+ * @retval 0 Success.
+ * @retval 1 Insuccess.
  */
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "status") == 0) {
