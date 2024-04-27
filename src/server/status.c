@@ -27,6 +27,14 @@
 #include "util.h"
 
 /**
+ * @brief   Maximum number of connection openings when the other side of the pipe is closed
+ *          prematurely.
+ * @details This number must be high, as any communication failure (to the parent) means loss of
+ *          server scheduling capacity.
+ */
+#define STATUS_MAX_RETRIES 16
+
+/**
  * @brief Sends a message to the client with information about a single task.
  *
  * @param ipc   Connection to the client. Mustn't be `NULL`.
@@ -60,7 +68,7 @@ int __status_send_message(ipc_t *ipc, int error, const tagged_task_t *task) {
 
     (void) error; /* TODO - Inform client of errors */
 
-    if (ipc_send(ipc, &message, message_length)) {
+    if (ipc_send_retry(ipc, &message, message_length, STATUS_MAX_RETRIES)) {
         util_perror("__status_send_message(): error while sending message to client");
         return 1;
     }
@@ -95,14 +103,6 @@ int __status_foreach_scheduler_task(const tagged_task_t *task, void *state_ipc) 
 }
 
 /**
- * @brief   Maximum number of connection openings when the other side of the pipe is closed
- *          prematurely.
- * @details This number must be high, as any communication failure means loss of server scheduling
- *          capacity.
- */
-#define STATUS_WARN_PARENT_MAX_RETRIES 16
-
-/**
  * @brief   Communicates to the parent server that the status task has terminated.
  * @details Errors will be outputted to `stderr`.
  *
@@ -129,7 +129,7 @@ int __status_warn_parent(size_t slot) {
     if (ipc_send_retry(ipc,
                        &message,
                        sizeof(protocol_task_done_message_t),
-                       STATUS_WARN_PARENT_MAX_RETRIES)) {
+                       STATUS_MAX_RETRIES)) {
         util_perror("__staus_warn_parent(): error while sending message to parent");
         ipc_free(ipc);
         return 1;
