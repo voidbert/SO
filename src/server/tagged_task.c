@@ -208,7 +208,7 @@ int tagged_task_set_time(tagged_task_t *task, tagged_task_time_t id, const struc
 
     if (time)
         task->times[id] = *time;
-    else
-        clock_gettime(CLOCK_MONOTONIC, task->times + id);
+    else if (clock_gettime(CLOCK_MONOTONIC, task->times + id) < 0)
+        task->times[id].tv_sec = task->times[id].tv_nsec = 0;
     return 0;
 }
