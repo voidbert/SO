@@ -143,12 +143,12 @@ $(DOCSDIR): $(SERVER_SOURCES) $(CLIENT_SOURCES) $(SERVER_HEADERS) $(CLIENT_HEADE
 %.pdf: report/%.tex
 	$(eval TMP_LATEX = $(shell mktemp -d))
 	cd report && pdflatex -halt-on-error -output-directory $(TMP_LATEX) $(shell basename $<)
-	@cp $(TPM_LATEX)/$@ $@
-	@rm -r $(TPM_LATEX)
+	@cp $(TMP_LATEX)/$@ $@
+	@rm -r $(TMP_LATEX)
 
 .PHONY: clean
 clean:
-	rm -r $(BUILDDIR) $(DEPDIR) $(DOCSDIR) $(OBJDIR) $(REPORT) 2> /dev/null ; true
+	rm -r $(BUILDDIR) $(DEPDIR) $(DOCSDIR) $(OBJDIR) 2> /dev/null ; true
 
 install: $(BUILDDIR)/$(SERVER_EXENAME) $(BUILDDIR)/$(CLIENT_EXENAME)
 	install -Dm 755 $(BUILDDIR)/$(SERVER_EXENAME) $(PREFIX)/bin
