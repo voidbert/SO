@@ -38,11 +38,10 @@ typedef struct task task_t;
  *
  * @param state  Pointer to the program's state, so that the process can read it.
  * @param slot   Slot where the task was scheduled.
- * @param secret Secret number to authenticate the termination of the task.
  *
  * @return The exit code of the child process.
  */
-typedef int (*task_procedure_t)(void *state, size_t slot, uint64_t secret);
+typedef int (*task_procedure_t)(void *state, size_t slot);
 
 /**
  * @brief   Creates a empty task composed of programs.
