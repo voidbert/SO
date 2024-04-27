@@ -24,15 +24,17 @@
 #define TASK_H
 
 #include <inttypes.h>
-#include <sys/types.h>
 
 #include "server/program.h"
 
-/** @brief A single program or pipeline that must be executed. */
+/**
+ * @brief A single program or pipeline that must be executed, or a procedure executable in a child
+ *        processs.
+ */
 typedef struct task task_t;
 
 /**
- * @brief Type of procedure that can be a task run in a child process.
+ * @brief Type of procedure that can constitute a task to run in a child process.
  *
  * @param state  Pointer to the program's state, so that the process can read it.
  * @param slot   Slot where the task was scheduled.
@@ -44,7 +46,8 @@ typedef int (*task_procedure_t)(void *state, size_t slot, uint64_t secret);
 
 /**
  * @brief   Creates a empty task composed of programs.
- * @details This task isn't valid, and needs to be populated with programs.
+ * @details This task isn't valid, and needs to be populated with programs (see
+ *          ::task_new_from_procedure).
  * @return  A new task on success, or `NULL` on allocation failure (`errno = ENOMEM`).
  */
 task_t *task_new_empty(void);
@@ -52,8 +55,8 @@ task_t *task_new_empty(void);
 /**
  * @brief Creates a new task from the programs that constitute it.
  *
- * @param programs Array of programs. Can be `NULL` for this method to have the same behavior as
- *                 ::task_new_empty.
+ * @param programs Array of programs. Can be `NULL`, in which case this method to have the same
+ *                 behavior as ::task_new_empty.
  * @param length   Number of programs in @p programs. Must be `0` if @p programs is NULL.
  *
  * @return A new task on success, or `NULL` on failure (check `errno`).
@@ -68,7 +71,7 @@ task_t *task_new_from_programs(const program_t *const *programs, size_t length);
 /**
  * @brief Creates a new task that will run a procedure.
  *
- * @param procedure Procedure to run.
+ * @param procedure Procedure to run. Mustn't be `NULL`.
  * @param state     Argument passed to @p procedure when its executed. No ownership of this data is
  *                  taken.
  *
@@ -82,9 +85,15 @@ task_t *task_new_from_programs(const program_t *const *programs, size_t length);
 task_t *task_new_from_procedure(task_procedure_t procedure, void *state);
 
 /**
+ * @brief Frees memory used by a task.
+ * @param task task to be deleted.
+ */
+void task_free(task_t *task);
+
+/**
  * @brief  Creates a deep copy of a task.
- * @param  task Task to be cloned.
- * @return A copy of @p task on success, NULL on failure (check `errno`).
+ * @param  task Task to be cloned. Mustn't be `NULL`.
+ * @return A copy of @p task on success, `NULL` on failure (check `errno`).
  *
  * | `errno`  | Cause               |
  * | -------- | ------------------- |
@@ -94,19 +103,13 @@ task_t *task_new_from_procedure(task_procedure_t procedure, void *state);
 task_t *task_clone(const task_t *task);
 
 /**
- * @brief Frees memory used by a task.
- * @param task task to be deleted.
- */
-void task_free(task_t *task);
-
-/**
  * @brief Appends a program to a task's program list.
  *
- * @param task    Task to be modified.
- * @param program Program to be added to @p task.
+ * @param task    Task to be modified. Mustn't be `NULL` or a task composed of a procedure.
+ * @param program Program to be added to @p task. Mustn't be `NULL`.
  *
  * @retval 0 Success.
- * @retval 1 Invalid arguments or allocation failure (check `errno`).
+ * @retval 1 Failure (check `errno`).
  *
  * | `errno`  | Cause                                                          |
  * | -------- | -------------------------------------------------------------- |
@@ -118,9 +121,9 @@ int task_add_program(task_t *task, const program_t *program);
 /**
  * @brief Gets the list of programs in a task.
  *
- * @param task  Task to get programs from. Mustn't be `NULL`.
+ * @param task  Task to get programs from. Mustn't be `NULL` or a task composed of a procedure.
  * @param count Where to place number of programs in list. Will only be updated on success. Mustn't
- *              be `NULL` or a task composed of a procedure.
+ *              be `NULL`.
  *
  * @return An array of programs, or `NULL` on failure (`errno = EINVAL`).
  */
