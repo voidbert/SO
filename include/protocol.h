@@ -230,7 +230,8 @@ typedef struct __attribute__((packed)) {
 } protocol_task_id_message_t;
 
 /** @brief The maximum length of protocol_status_response_message_t::command_line. */
-#define PROTOCOL_STATUS_MAXIMUM_LENGTH (PIPE_BUF - sizeof(uint8_t) * 2 - 4 * sizeof(double))
+#define PROTOCOL_STATUS_MAXIMUM_LENGTH                                                             \
+    (PIPE_BUF - sizeof(uint8_t) * 3 - sizeof(uint32_t) - 4 * sizeof(double))
 
 /** @brief The status of a task in a ::protocol_status_response_message_t. */
 typedef enum {
@@ -247,6 +248,10 @@ typedef enum {
  *     @brief Must be ::PROTOCOL_S2C_STATUS.
  * @var protocol_status_response_message_t::status
  *     @brief Status of the task this message refers to.
+ * @var protocol_status_response_message_t::id
+ *     @brief Identifier of the task this message refers to.
+ * @var protocol_status_response_message_t::error
+ *     @brief Whether an error occurred while running the task this message refers to.
  * @var protocol_status_response_message_t::time_c2s_fifo
  *     @brief Time in microseconds that it took for the task to get from the client to the server.
  * @var protocol_status_response_message_t::time_waiting
@@ -264,6 +269,8 @@ typedef enum {
 typedef struct __attribute__((packed)) {
     protocol_s2c_msg_type  type   : 8;
     protocol_task_status_t status : 8;
+    uint32_t               id;
+    uint8_t                error;
     double                 time_c2s_fifo, time_waiting, time_executing, time_s2s_fifo;
     char                   command_line[PROTOCOL_STATUS_MAXIMUM_LENGTH];
 } protocol_status_response_message_t;
@@ -276,6 +283,8 @@ typedef struct __attribute__((packed)) {
  * @param out_size     Where to output the number of bytes in the final message to. Mustn't be
  *                     `NULL`. Will only be set when this function succeeds.
  * @param command_line Command line of the task. Mustn't be `NULL`.
+ * @param id           Identifier of the task this message refers to.
+ * @param error        Whether an error occurred while running the task this message refers to.
  * @param times        Result of calling ::tagged_task_get_time for every ::tagged_task_time_t.
  *
  * @retval 0 Success.
@@ -290,6 +299,8 @@ int protocol_status_response_message_new(
     protocol_status_response_message_t *out,
     size_t                             *out_size,
     const char                         *command_line,
+    uint32_t                            id,
+    uint8_t                             error,
     const struct timespec              *times[TAGGED_TASK_TIME_COMPLETED + 1]);
 
 /**

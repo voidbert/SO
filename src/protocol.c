@@ -121,6 +121,8 @@ int protocol_status_response_message_new(
     protocol_status_response_message_t *out,
     size_t                             *out_size,
     const char                         *command_line,
+    uint32_t                            id,
+    uint8_t                             error,
     const struct timespec              *times[TAGGED_TASK_TIME_COMPLETED + 1]) {
 
     if (!out || !out_size || !command_line || !times) {
@@ -128,7 +130,9 @@ int protocol_status_response_message_new(
         return 1;
     }
 
-    out->type = PROTOCOL_S2C_STATUS;
+    out->type  = PROTOCOL_S2C_STATUS;
+    out->id    = id;
+    out->error = error;
 
     if (times[TAGGED_TASK_TIME_COMPLETED])
         out->status = PROTOCOL_TASK_STATUS_DONE;
@@ -153,12 +157,12 @@ int protocol_status_response_message_new(
     }
     memcpy(out->command_line, command_line, len);
 
-    *out_size = 2 * sizeof(uint8_t) + 4 * sizeof(double) + len;
+    *out_size = 3 * sizeof(uint8_t) + sizeof(uint32_t) + 4 * sizeof(double) + len;
     return 0;
 }
 
 int protocol_status_response_message_check_length(size_t message_length, size_t *command_length) {
-    if (message_length <= 2 * sizeof(uint8_t) + 4 * sizeof(double) ||
+    if (message_length <= 3 * sizeof(uint8_t) + sizeof(uint32_t) + 4 * sizeof(double) ||
         message_length > IPC_MAXIMUM_MESSAGE_LENGTH)
         return 0;
 
@@ -167,6 +171,6 @@ int protocol_status_response_message_check_length(size_t message_length, size_t 
         return 0;
     }
 
-    *command_length = message_length - 2 * sizeof(uint8_t) - 4 * sizeof(double);
+    *command_length = message_length - 3 * sizeof(uint8_t) - sizeof(uint32_t) - 4 * sizeof(double);
     return 1;
 }

@@ -93,13 +93,15 @@ void __client_request_on_status_message(uint8_t *message, size_t length) {
     __client_request_print_time_unit(fields->time_executing, time_executing_str);
     __client_request_print_time_unit(fields->time_s2s_fifo, time_s2s_fifo_str);
 
-    util_log("(%s) \"%s\" %s %s %s %s\n",
+    util_log("(%s) %" PRIu32 ": \"%s\" %s %s %s %s%s\n",
              status_str,
+             fields->id,
              command_line,
              time_c2s_fifo_str,
              time_waiting_str,
              time_executing_str,
-             time_s2s_fifo_str);
+             time_s2s_fifo_str,
+             fields->error ? " (FAILED)" : "");
 }
 
 /**
