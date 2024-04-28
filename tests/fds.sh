@@ -17,20 +17,29 @@
 # limitations under the License.
 
 # Test whether the programs executed by the server have only 3 file descriptors, stdout, stdin and
-# stderr.
+# stderr. THIS TEST IS ONLY COMPATIBLE WITH LINUX.
 
-if [ -z "TESTER_SCRIPT" ]; then
+if [ -z "$1" ]; then
 	. "$(dirname "$0")/utils.sh" || exit 1
 
-	orchestrator_pid=$(start_orchestrator 1 fcfs "$(readlink "/proc/self/1")") || exit 1
-	./bin/client execute 100 -u 'sh -c "TESTER_SCRIPT=1 ./tests/fds.sh"' > /dev/null
+	orchestrator_pid=$(start_orchestrator 1 fcfs "test.txt") || exit 1
+	./bin/client execute 100 -u "./tests/fds.sh 0" > /dev/null
+	./bin/client execute 100 -p "./tests/fds.sh 1 | ./tests/fds.sh 2 | ./tests/fds.sh 3" > /dev/null
 	stop_orchestrator true "$orchestrator_pid"
+
+	cat "/tmp/orchestrator/1.out" ; echo "" ; cat "/tmp/orchestrator/2.out"
 else
-	echo "Open file descriptors:"
+	[ "$1" -gt 1 ] && while IFS= read -r output_line; do echo "$output_line"; done && echo ""
+
+	if [ "$1" -eq 0 ]; then
+		echo "Open file descriptors (unique program):"
+	else
+		echo "Open file descriptors (pipeline step $1):"
+	fi
+
 	for fd in /proc/self/fd/*; do
-		if [ "$fd" = "/proc/self/fd/255" ]; then # Bash specific file descriptor
-			continue
-		fi
+		# Remove bash specific file descriptor
+		if [ "$fd" = "/proc/self/fd/255" ]; then continue; fi
 
 		if ! name="$(readlink "$fd")"; then
 			name="?"
