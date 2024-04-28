@@ -16,7 +16,7 @@
 
 /**
  * @file  ipc.h
- * @brief Inter-process communication between the client and the server using named pipos.
+ * @brief Inter-process communication between the client and the server using named pipes.
  */
 
 #ifndef IPC_H
@@ -24,11 +24,10 @@
 
 #include <inttypes.h>
 #include <limits.h>
-#include <sys/types.h>
 
-/** @brief The type of endpoint (this program) in an IPC. */
+/** @brief The type of endpoint (this program is) in an IPC. */
 typedef enum {
-    IPC_ENDPOINT_CLIENT, /**< Client side (includes orchestrator's fork). */
+    IPC_ENDPOINT_CLIENT, /**< Client side (this includes orchestrator's children). */
     IPC_ENDPOINT_SERVER, /**< Server side. */
 } ipc_endpoint_t;
 
@@ -50,7 +49,8 @@ typedef int (*ipc_on_message_callback_t)(uint8_t *message, size_t length, void *
 /**
  * @brief   Type of procedure called when there's no more data to read from an IPC.
  * @details This is called before an `open()` call that would block the program, except before
- *          first of these `open()` calls.
+ *          first of these `open()` calls. The programmer can choose to keep listening for new
+ *          connections or to stop.
  *
  * @param state A pointer passed to ::ipc_listen so that this callback can modify the program's
  *              state.
@@ -81,7 +81,7 @@ typedef struct ipc ipc_t;
  * | `errno`  | Cause                                                                |
  * | -------- | -------------------------------------------------------------------- |
  * | `EINVAL` | @p this_endpoint is invalid.                                         |
- * | `ENOMEM` | Allocation failure.                                                  |
+ * | `ENOMEM` | Allocation failure (or see `man 2 open`).                            |
  * | `EEXIST` | File already exists. Another server running? (::IPC_ENDPOINT_SERVER) |
  * | `ENOENT` | Server not running (::IPC_ENDPOINT_CLIENT).                          |
  * | other    | See `man 3 mkfifo` and `man 2 open`.                                 |
@@ -89,9 +89,17 @@ typedef struct ipc ipc_t;
 ipc_t *ipc_new(ipc_endpoint_t this_endpoint);
 
 /**
- * @brief Sends a message through IPC.
+ * @brief Closes an IPC connection and frees memory associated to it.
+ * @param ipc IPC connection to be freed.
+ */
+void ipc_free(ipc_t *ipc);
+
+/**
+ * @brief   Sends a message through IPC.
+ * @details This may fail due to a `SIGPIPE`, whose signal handler is replaced by the default action
+ *          (terminate).
  *
- * @param ipc     Connection to send traffic through. Musyn't be `NULL`. If this is a
+ * @param ipc     Connection to send traffic through. Mustn't be `NULL`. If this is a
  *                ::IPC_ENDPOINT_SERVER connection, it must have been prepared for send data
  *                (::ipc_server_open_sending).
  * @param message Buffer containing data to send. Mustn't be `NULL`.
@@ -112,14 +120,14 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length);
 /**
  * @brief   Sends a message through IPC, retrying if pipe errors occur.
  * @details Pipe error (synchronization error) recovery is important for the server child processes
- *          that need to warn ther server they're about to terminate. If that message doens't get to
- *          the server, it doesn't know that it can schedule more tasks.
+ *          that need to warn their parent they're about to terminate. If that message doesn't get
+ *          to the server, it doesn't know that it can schedule more tasks.
  *
  *          This will write to `stderr` when errors are recovered from.
  *
  *          The signal handler for `SIGPIPE` will be replaced.
  *
- * @param ipc       Connection to send traffic through. Musyn't be `NULL`. If this is a
+ * @param ipc       Connection to send traffic through. Mustn't be `NULL`. If this is a
  *                  ::IPC_ENDPOINT_SERVER connection, it must have been prepared for send data
  *                  (::ipc_server_open_sending).
  * @param message   Buffer containing data to send. Mustn't be `NULL`.
@@ -140,7 +148,7 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length);
 int ipc_send_retry(ipc_t *ipc, const void *message, size_t length, unsigned int max_tries);
 
 /**
- * @brief   Prepares a connection on the server to send data to a client.
+ * @brief   Prepares a connection open on the server to send data to a client.
  * @details This will block the server if the client dies and stops listening to the pipe. We tried
  *          to prevent it by allowing the server to drop messages, but the professors would rather
  *          have the server block.
@@ -170,7 +178,7 @@ int ipc_server_open_sending(ipc_t *ipc, pid_t client_pid);
  *            before.
  *
  * @retval 0 Success (`close()` failures will be ignored).
- * @retval 1 Failure (`errno = EINVAL` because @p is `NULL`, not a  ::IPC_ENDPOINT_SERVER connection
+ * @retval 1 Failure (`errno = EINVAL` because @p is `NULL`, not a ::IPC_ENDPOINT_SERVER connection
  *           or closed for sending).
  */
 int ipc_server_close_sending(ipc_t *ipc);
@@ -194,11 +202,5 @@ int ipc_listen(ipc_t                         *ipc,
                ipc_on_message_callback_t      message_cb,
                ipc_on_before_block_callback_t block_cb,
                void                          *state);
-
-/**
- * @brief Closes an IPC connection and frees memory associated to it.
- * @param ipc IPC connection to be freed.
- */
-void ipc_free(ipc_t *ipc);
 
 #endif

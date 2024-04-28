@@ -19,6 +19,9 @@
  * @brief Subprogram that tells the client the server's status.
  */
 
+#ifndef STATUS_H
+#define STATUS_H
+
 #include "ipc.h"
 #include "server/log_file.h"
 #include "server/scheduler.h"
@@ -34,7 +37,7 @@
  * @var status_state_t::log
  *     @brief The server's log file, to get completed task information from.
  * @var status_state_t::scheduler
- *     @brief Scheduler to get current and future task information.
+ *     @brief Scheduler information about scheduled and currently running.
  */
 typedef struct {
     ipc_t       *ipc;
@@ -46,11 +49,12 @@ typedef struct {
 /**
  * @brief Entry point to the subprogram that provides the status to the client.
  *
- * @param state_data A pointer to aa ::status_state_t. It's only a `void *` because this is a
- *                   ::task_prcedure_t.
+ * @param state_data A pointer to aa ::status_state_t. It's only a `void *` to match the signature
+ *                   of ::task_prcedure_t. Mustn't be `NULL`.
  * @param slot       Slot where the task was scheduled.
- * @param secret     Secret number to authenticate the termination of the task.
  *
- * @return The exit code of the program.
+ * @return The exit code of the program. The value of `errno` is unspecified.
  */
-int status_main(void *state_data, size_t slot, uint64_t secret);
+int status_main(void *state_data, size_t slot);
+
+#endif

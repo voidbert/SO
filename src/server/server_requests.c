@@ -27,6 +27,13 @@
 #include "server/log_file.h"
 #include "server/server_requests.h"
 #include "server/status.h"
+#include "util.h"
+
+/**
+ * @brief Maximum number of connection openings when the other side of the pipe is closed
+ *        prematurely.
+ */
+#define SERVER_REQUESTS_MAX_RETRIES 16
 
 /**
  * @struct server_state_t
@@ -35,7 +42,7 @@
  * @var server_state_t::ipc
  *     @brief IPC connection currently listening for new messages.
  * @var server_state_t::scheduler
- *     @brief Task scheduler.
+ *     @brief Scheduler for client-submitted tasks.
  * @var server_state_t::status_scheduler
  *     @brief Scheduler for status tasks.
  * @var server_state_t::next_task_id
@@ -59,15 +66,15 @@ typedef struct {
  * @param length  Number of bytes in @p message.
  */
 void __server_requests_on_schedule_message(server_state_t *state, uint8_t *message, size_t length) {
-    if (!protocol_send_program_task_message_check_length(length)) {
-        fprintf(stderr, "Invalid C2S_SEND_PROGRAM / C2S_SEND_TASK message received!\n");
+    size_t command_length;
+    if (!protocol_send_program_task_message_check_length(length, &command_length)) {
+        util_error("%s(): invalid message received!\n", __func__);
         return;
     }
     protocol_send_program_task_message_t *fields = (protocol_send_program_task_message_t *) message;
 
     /* Fix non-terminated string */
-    char   command_line[PROTOCOL_MAXIMUM_COMMAND_LENGTH + 1];
-    size_t command_length = protocol_send_program_task_message_get_error_length(length);
+    char command_line[PROTOCOL_MAXIMUM_COMMAND_LENGTH + 1];
     memcpy(command_line, fields->command_line, command_length);
     command_line[command_length] = '\0';
 
@@ -75,18 +82,22 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
     int            parsing_failure = 0;
     tagged_task_t *task =
         tagged_task_new_from_command_line(command_line, state->next_task_id, fields->expected_time);
-    if (!task && errno == EINVAL)
-        parsing_failure = 1;
-
-    if (task) {
+    if (!task) {
+        if (errno == EILSEQ) {
+            parsing_failure = 1;
+        } else {
+            util_perror("__server_requests_on_schedule_message(): failed to create task");
+            return;
+        }
+    } else {
         struct timespec time_sent = fields->time_sent, time_arrived = {0};
         (void) clock_gettime(CLOCK_MONOTONIC, &time_arrived);
-        (void) tagged_task_set_time(task, TAGGED_TASK_TIME_SENT, &time_sent);
-        (void) tagged_task_set_time(task, TAGGED_TASK_TIME_ARRIVED, &time_arrived);
+        tagged_task_set_time(task, TAGGED_TASK_TIME_SENT, &time_sent);
+        tagged_task_set_time(task, TAGGED_TASK_TIME_ARRIVED, &time_arrived);
 
         if (fields->type == PROTOCOL_C2S_SEND_PROGRAM) {
             size_t program_count;
-            (void) task_get_programs(tagged_task_get_task(task), &program_count);
+            task_get_programs(tagged_task_get_task(task), &program_count);
             if (program_count != 1)
                 parsing_failure = 1;
         }
@@ -94,22 +105,19 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
 
     if (!parsing_failure) {
         if (scheduler_add_task(state->scheduler, task)) {
-            /*
-            * Informing the client of this failure may require allocations. Just log it and let the
-            * client block.
-            */
-            fprintf(stderr, "Allocation failure! Go buy more RAM!\n");
+            /* Out of memory: don't try to inform the client. */
+            util_perror("__server_requests_on_schedule_message(): scheduler failure");
             tagged_task_free(task); /* Handles task = NULL in case of allocation failure */
             return;
         } else {
             state->next_task_id++;
         }
     }
-    tagged_task_free(task); /* Handles task = NULL in case of allocation failure */
+    tagged_task_free(task);
 
     /* Reply to client */
     if (ipc_server_open_sending(state->ipc, fields->client_pid)) {
-        perror("Failed to open() communication with the client");
+        util_perror("__server_requests_on_schedule_message(): failed to open connection");
         return;
     }
 
@@ -118,17 +126,23 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
         protocol_error_message_t error_message;
         protocol_error_message_new(&error_message, &error_message_size, "Parsing failure!\n");
 
-        if (ipc_send(state->ipc, &error_message, error_message_size))
-            perror("Failure during write() to client");
+        if (ipc_send_retry(state->ipc,
+                           &error_message,
+                           error_message_size,
+                           SERVER_REQUESTS_MAX_RETRIES))
+            util_perror("__server_requests_on_schedule_message(): failure sending message");
     } else {
         protocol_task_id_message_t success_message = {.type = PROTOCOL_S2C_TASK_ID,
                                                       .id   = state->next_task_id - 1};
 
-        if (ipc_send(state->ipc, &success_message, sizeof(protocol_task_id_message_t)))
-            perror("Failure during write() to client");
+        if (ipc_send_retry(state->ipc,
+                           &success_message,
+                           sizeof(protocol_task_id_message_t),
+                           SERVER_REQUESTS_MAX_RETRIES))
+            util_perror("__server_requests_on_schedule_message(): failure sending message");
     }
 
-    (void) ipc_server_close_sending(state->ipc);
+    ipc_server_close_sending(state->ipc);
 }
 
 /**
@@ -141,24 +155,23 @@ void __server_requests_on_schedule_message(server_state_t *state, uint8_t *messa
  */
 void __server_requests_on_done_message(server_state_t *state, uint8_t *message, size_t length) {
     if (length != sizeof(protocol_task_done_message_t)) {
-        fprintf(stderr, "Invalid C2S_TASK_DONE message received!\n");
+        util_error("%s(): invalid message received!\n", __func__);
         return;
     }
-
     protocol_task_done_message_t *fields = (protocol_task_done_message_t *) message;
 
     scheduler_t *target_scheduler = fields->is_status ? state->status_scheduler : state->scheduler;
     struct timespec time_ended    = fields->time_ended;
-    tagged_task_t  *task =
-        scheduler_mark_done(target_scheduler, fields->slot, fields->secret, &time_ended);
+    tagged_task_t  *task = scheduler_mark_done(target_scheduler, fields->slot, &time_ended);
     if (!task) {
-        fprintf(stderr, "C2S_TASK_DONE message with invalid slot / secret!\n");
+        util_error("%s(): message with invalid slot!\n", __func__);
         return;
     }
 
     if (!fields->is_status)
         if (log_file_write_task(state->log, task, fields->error))
-            perror("Failed to log completed task to file");
+            util_perror(
+                "__server_requests_on_done_message(): failed to log completed task to file");
     tagged_task_free(task);
 }
 
@@ -172,25 +185,25 @@ void __server_requests_on_done_message(server_state_t *state, uint8_t *message, 
  */
 void __server_requests_on_status_message(server_state_t *state, uint8_t *message, size_t length) {
     if (length != sizeof(protocol_status_request_message_t)) {
-        fprintf(stderr, "Invalid C2S_STATUS message received!\n");
+        util_error("%s(): invalid message received!\n", __func__);
         return;
     }
 
-    protocol_status_request_message_t *fields = (protocol_status_request_message_t *) message;
-
-    status_state_t status_state = {.ipc        = state->ipc,
-                                   .client_pid = fields->client_pid,
-                                   .log        = state->log,
-                                   .scheduler  = state->scheduler};
-    tagged_task_t *task         = tagged_task_new_from_procedure(status_main, &status_state, 0, 0);
+    protocol_status_request_message_t *fields       = (protocol_status_request_message_t *) message;
+    status_state_t                     status_state = {.ipc        = state->ipc,
+                                                       .client_pid = fields->client_pid,
+                                                       .log        = state->log,
+                                                       .scheduler  = state->scheduler};
+    tagged_task_t *task = tagged_task_new_from_procedure(status_main, &status_state, 0, 0);
     if (!task) {
-        fprintf(stderr, "Out of memory!\n");
+        util_perror("__server_requests_on_status_message(): failed to create task");
         return;
     }
 
     if (!scheduler_can_schedule_now(state->status_scheduler)) {
         if (ipc_server_open_sending(state->ipc, fields->client_pid)) {
-            perror("Failed to open() communication with the client");
+            util_perror("__server_requests_on_status_message(): failed to open connection");
+            tagged_task_free(task);
             return;
         }
 
@@ -198,21 +211,21 @@ void __server_requests_on_status_message(server_state_t *state, uint8_t *message
         protocol_error_message_t error_message;
         protocol_error_message_new(&error_message, &error_message_size, "No capacity available!\n");
 
-        if (ipc_send(state->ipc, &error_message, error_message_size))
-            perror("Failure during write() to client");
+        if (ipc_send_retry(state->ipc,
+                           &error_message,
+                           error_message_size,
+                           SERVER_REQUESTS_MAX_RETRIES))
+            util_perror("__server_requests_on_status_message(): failure sending message");
 
-        (void) ipc_server_close_sending(state->ipc);
+        ipc_server_close_sending(state->ipc);
     } else if (scheduler_add_task(state->status_scheduler, task)) {
-        /*
-         * Informing the client of this failure may require allocations. Just log it and let the
-         * client block.
-         */
-        fprintf(stderr, "Allocation failure! Go buy more RAM!\n");
+        util_perror("__server_requests_on_status_message(): scheduler failure");
         tagged_task_free(task);
         return;
     } else {
         if (scheduler_dispatch_possible(state->status_scheduler) < 0)
-            perror("Scheduler failure");
+            util_perror("__server_requests_on_status_message(): scheduler failure");
+        tagged_task_free(task);
     }
 }
 
@@ -242,7 +255,7 @@ int __server_requests_on_message(uint8_t *message, size_t length, void *state_da
             __server_requests_on_status_message(state, message, length);
             break;
         default:
-            fprintf(stderr, "Message with bad type received!\n");
+            util_error("%s(): message with bad type received!\n", __func__);
             break;
     }
 
@@ -255,12 +268,12 @@ int __server_requests_on_message(uint8_t *message, size_t length, void *state_da
  *
  * @param state_data A pointer to a ::server_state_t. Mustn't be `NULL` (unchecked).
  *
- * @retval -1 Refuse connection.
+ * @retval -1 Always. Refuse connection.
  */
 int __server_requests_before_block(void *state_data) {
     server_state_t *state = state_data;
     if (scheduler_dispatch_possible(state->scheduler) < 0) /* New task or old task terminated */
-        perror("Scheduler failure");
+        util_perror("__server_requests_before_block(): scheduler failure");
     return 0; /* Always keep listening for new connections */
 }
 
@@ -274,25 +287,24 @@ int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char 
     }
 
     scheduler_t *scheduler = scheduler_new(policy, ntasks, directory);
-
     if (!scheduler) {
-        fprintf(stderr, "Invalid policy or number of concurrent tasks!\n");
+        util_perror("server_requests_listen(): failed to create main scheduler");
         return 1; /* errno = EINVAL guaranteed */
     }
 
     scheduler_t *status_scheduler =
         scheduler_new(SCHEDULER_POLICY_FCFS, SERVER_REQUESTS_MAXIMUM_STATUS_TASKS, "");
     if (!status_scheduler) {
-        fprintf(stderr, "Out of memory!\n");
+        util_perror("server_requests_listen(): failed to create status scheduler");
         return 1; /* errno = EINVAL guaranteed */
     }
 
     ipc_t *ipc = ipc_new(IPC_ENDPOINT_SERVER);
     if (!ipc) {
         if (errno == EEXIST)
-            fprintf(stderr, "Server's FIFO already exists. Is the server running?\n");
+            util_error("Server's FIFO already exists. Is the server running?\n");
         else
-            perror("Failed to open() server's FIFO");
+            util_perror("server_requests_listen(): failed to open() server's FIFO");
 
         scheduler_free(scheduler);
         return 1;
@@ -302,7 +314,7 @@ int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char 
     snprintf(log_path, PATH_MAX, "%s/log.bin", directory);
     log_file_t *log = log_file_new(log_path, 1);
     if (!log) {
-        perror("Failed to open log file");
+        util_perror("server_requests_listen(): failed to open log file");
         scheduler_free(scheduler);
         ipc_free(ipc);
         return 1;
@@ -314,7 +326,7 @@ int server_requests_listen(scheduler_policy_t policy, size_t ntasks, const char 
                             .next_task_id     = 1,
                             .log              = log};
     if (ipc_listen(ipc, __server_requests_on_message, __server_requests_before_block, &state) == 1)
-        perror("open() error");
+        util_perror("server_requests_listen(): error opening connection");
 
     log_file_free(log);
     scheduler_free(status_scheduler);

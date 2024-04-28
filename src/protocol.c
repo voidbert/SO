@@ -56,16 +56,20 @@ int protocol_send_program_task_message_new(protocol_send_program_task_message_t 
     return 0;
 }
 
-int protocol_send_program_task_message_check_length(size_t length) {
-    if (length <= sizeof(uint8_t) + sizeof(pid_t) + sizeof(struct timespec) + sizeof(uint32_t) ||
-        length > IPC_MAXIMUM_MESSAGE_LENGTH)
+int protocol_send_program_task_message_check_length(size_t message_length, size_t *command_length) {
+    if (message_length <=
+            sizeof(uint8_t) + sizeof(pid_t) + sizeof(struct timespec) + sizeof(uint32_t) ||
+        message_length > IPC_MAXIMUM_MESSAGE_LENGTH)
         return 0;
-    return 1;
-}
 
-size_t protocol_send_program_task_message_get_error_length(size_t message_length) {
-    return message_length - sizeof(uint8_t) - sizeof(pid_t) - sizeof(struct timespec) -
-           sizeof(uint32_t);
+    if (!command_length) {
+        errno = EINVAL;
+        return 0;
+    }
+
+    *command_length = message_length - sizeof(uint8_t) - sizeof(pid_t) - sizeof(struct timespec) -
+                      sizeof(uint32_t);
+    return 1;
 }
 
 int protocol_error_message_new(protocol_error_message_t *out, size_t *out_size, const char *error) {
@@ -86,12 +90,17 @@ int protocol_error_message_new(protocol_error_message_t *out, size_t *out_size, 
     return 0;
 }
 
-int protocol_error_message_check_length(size_t length) {
-    return length > sizeof(uint8_t) && length <= IPC_MAXIMUM_MESSAGE_LENGTH;
-}
+int protocol_error_message_check_length(size_t message_length, size_t *error_length) {
+    if (message_length <= sizeof(uint8_t) || message_length > IPC_MAXIMUM_MESSAGE_LENGTH)
+        return 0;
 
-size_t protocol_error_message_get_error_length(size_t message_length) {
-    return message_length - sizeof(uint8_t);
+    if (!error_length) {
+        errno = EINVAL;
+        return 0;
+    }
+
+    *error_length = message_length - sizeof(uint8_t);
+    return 1;
 }
 
 /**
@@ -112,6 +121,8 @@ int protocol_status_response_message_new(
     protocol_status_response_message_t *out,
     size_t                             *out_size,
     const char                         *command_line,
+    uint32_t                            id,
+    uint8_t                             error,
     const struct timespec              *times[TAGGED_TASK_TIME_COMPLETED + 1]) {
 
     if (!out || !out_size || !command_line || !times) {
@@ -119,7 +130,9 @@ int protocol_status_response_message_new(
         return 1;
     }
 
-    out->type = PROTOCOL_S2C_STATUS;
+    out->type  = PROTOCOL_S2C_STATUS;
+    out->id    = id;
+    out->error = error;
 
     if (times[TAGGED_TASK_TIME_COMPLETED])
         out->status = PROTOCOL_TASK_STATUS_DONE;
@@ -144,16 +157,20 @@ int protocol_status_response_message_new(
     }
     memcpy(out->command_line, command_line, len);
 
-    *out_size = 2 * sizeof(uint8_t) + 4 * sizeof(double) + len;
+    *out_size = 3 * sizeof(uint8_t) + sizeof(uint32_t) + 4 * sizeof(double) + len;
     return 0;
 }
 
-int protocol_status_response_message_check_length(size_t length) {
-    if (length <= 2 * sizeof(uint8_t) + 4 * sizeof(double) || length > IPC_MAXIMUM_MESSAGE_LENGTH)
+int protocol_status_response_message_check_length(size_t message_length, size_t *command_length) {
+    if (message_length <= 3 * sizeof(uint8_t) + sizeof(uint32_t) + 4 * sizeof(double) ||
+        message_length > IPC_MAXIMUM_MESSAGE_LENGTH)
         return 0;
-    return 1;
-}
 
-size_t protocol_status_response_get_command_length(size_t message_length) {
-    return message_length - 2 * sizeof(uint8_t) - 4 * sizeof(double);
+    if (!command_length) {
+        errno = EINVAL;
+        return 0;
+    }
+
+    *command_length = message_length - 3 * sizeof(uint8_t) - sizeof(uint32_t) - 4 * sizeof(double);
+    return 1;
 }

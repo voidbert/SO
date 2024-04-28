@@ -93,15 +93,6 @@ program_t *program_new_from_arguments(const char *const *arguments, ssize_t leng
     return ret;
 }
 
-program_t *program_clone(const program_t *program) {
-    if (!program) {
-        errno = EINVAL;
-        return NULL;
-    }
-
-    return program_new_from_arguments((const char *const *) program->argv, program->length);
-}
-
 void program_free(program_t *program) {
     if (!program)
         return; /* Don't set EINVAL, as that's normal free behavior. */
@@ -112,17 +103,12 @@ void program_free(program_t *program) {
     free(program);
 }
 
-int program_equals(const program_t *a, const program_t *b) {
-    if (a == NULL || b == NULL)
-        return a == b;
-
-    if (a->length != b->length)
-        return 0;
-
-    for (size_t i = 0; i < a->length; ++i)
-        if (strcmp(a->argv[i], b->argv[i]) != 0)
-            return 0;
-    return 1;
+program_t *program_clone(const program_t *program) {
+    if (!program) {
+        errno = EINVAL;
+        return NULL;
+    }
+    return program_new_from_arguments((const char *const *) program->argv, program->length);
 }
 
 int program_add_argument(program_t *program, const char *argument) {
