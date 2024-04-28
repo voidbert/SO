@@ -198,7 +198,7 @@ int __client_requests_send_program_task(const char *command_line,
         return 1;
     }
 
-    if (ipc_send(ipc, &message, message_size)) {
+    if (ipc_send_retry(ipc, &message, message_size, CLIENT_REQUESTS_MAX_RETRIES)) {
         util_perror("client_request_ask_status(): failed to send message to server");
         ipc_free(ipc);
         return 1;
