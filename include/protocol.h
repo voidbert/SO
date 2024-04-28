@@ -23,9 +23,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-#include <inttypes.h>
 #include <sys/types.h>
-#include <time.h>
 
 #include "ipc.h"
 #include "server/tagged_task.h"
@@ -47,7 +45,7 @@ typedef enum {
     PROTOCOL_C2S_SEND_PROGRAM, /**< @brief Send a command with no pipelines to be executed. */
     PROTOCOL_C2S_SEND_TASK,    /**< @brief Send a task that may contain pipelines to be executed. */
     PROTOCOL_C2S_TASK_DONE,    /**< @brief Server's child completed the execution of a task. */
-    PROTOCOL_C2S_STATUS,       /**< @brief Ask for the server's status. */
+    PROTOCOL_C2S_STATUS,       /**< @brief Client asks for the server's status. */
 } protocol_c2s_msg_type;
 
 /** @brief Types of the messages sent from the server to the client. */
@@ -75,7 +73,7 @@ typedef enum {
  * @var protocol_send_program_task_message_t::expected_time
  *     @brief Expected execution time in milliseconds.
  * @var protocol_send_program_task_message_t::command_line
- *     @brief   Command line containing the task to be parsed.
+ *     @brief   Command line to be parsed forming a task.
  *     @details Note that, on reception of a message, not all bytes of this array may be valid, nor
  *              is this string null-terminated, as the real string length is determined by the
  *              message's total length.
@@ -98,7 +96,7 @@ typedef struct __attribute__((packed)) {
  * @param multiprogram  Whether @p command_line refers to a pipeline or just a single program.
  * @param command_line  Command line to be sent to the server for parsing and execution. Mustn't be
  *                      `NULL`.
- * @param expected_time Expected execution time in milliseconds.
+ * @param expected_time Expected execution time in milliseconds reported by the client.
  *
  * @retval 0 Success.
  * @retval 1 Failure (check `errno`).
@@ -116,16 +114,19 @@ int protocol_send_program_task_message_new(protocol_send_program_task_message_t 
 
 /**
  * @brief Checks if a received ::protocol_send_program_task_message_t can have a given length.
- * @param length Length of the received message.
  *
- * @retval 0 Too long or too short.
+ * @param message_length Length of the received message.
+ * @param command_length Where to write (on success) the length of
+ *                       protocol_send_program_task_message_t::command_line to. Mustn't be `NULL`.
+ *
+ * @retval 0 Too long, too short or `NULL` @p command_length (in this last case, `errno = EINVAL`).
  * @retval 1 Valid length.
  */
-int protocol_send_program_task_message_check_length(size_t length);
+int protocol_send_program_task_message_check_length(size_t message_length, size_t *command_length);
 
 /**
- * @struct protocol_status_request_message_t
- * @brief  Structure of a message asking a server for its status.
+ * @struct  protocol_status_request_message_t
+ * @brief   Structure of a message asking a server for its status.
  * @details A constructor and a message length checker isn't available for such a trivial message
  *          type.
  *
@@ -140,14 +141,6 @@ typedef struct __attribute__((packed)) {
 } protocol_status_request_message_t;
 
 /**
- * @brief  Gets the length of an ::protocol_send_program_task_message_t from the total message
- *         length.
- * @param  message_length Total length of the message.
- * @return The length of protocol_send_program_task_message_t::command_line.
- */
-size_t protocol_send_program_task_message_get_error_length(size_t message_length);
-
-/**
  * @struct  protocol_task_done_message_t
  * @brief   Structure of a message that tells the server one of its children terminated.
  * @details A constructor and a message length checker isn't available for such a trivial message
@@ -157,8 +150,6 @@ size_t protocol_send_program_task_message_get_error_length(size_t message_length
  *     @brief Must be ::PROTOCOL_C2S_TASK_DONE.
  * @var protocol_task_done_message_t::slot
  *     @brief Slot where the message was scheduled. See ::scheduler_mark_done.
- * @var protocol_task_done_message_t::secret
- *     @brief Secret number known only by the orchestrator and the child. See ::scheduler_mark_done.
  * @var protocol_task_done_message_t::time_ended
  *     @brief When task execution ended. See ::scheduler_mark_done.
  * @var protocol_task_done_message_t::is_status
@@ -169,7 +160,6 @@ size_t protocol_send_program_task_message_get_error_length(size_t message_length
 typedef struct __attribute__((packed)) {
     protocol_c2s_msg_type type : 8;
     size_t                slot;
-    uint64_t              secret;
     struct timespec       time_ended;
     uint8_t               is_status;
     uint8_t               error;
@@ -185,7 +175,7 @@ typedef struct __attribute__((packed)) {
  * @var protocol_error_message_t::type
  *     @brief Must be ::PROTOCOL_S2C_ERROR.
  * @var protocol_error_message_t::error
- *     @brief Error message.
+ *     @brief Error message string.
  */
 typedef struct __attribute__((packed)) {
     protocol_s2c_msg_type type : 8;
@@ -194,6 +184,7 @@ typedef struct __attribute__((packed)) {
 
 /**
  * @brief Creates a new message to report an error to the client.
+ *
  * @param out      Where to output the message to. Mustn't be `NULL`. Will only be modified when
  *                 this function succeeds.
  * @param out_size Where to output the number of bytes in the final message to. Mustn't be `NULL`.
@@ -212,19 +203,15 @@ int protocol_error_message_new(protocol_error_message_t *out, size_t *out_size, 
 
 /**
  * @brief Checks if a received ::protocol_error_message_t can have a given length.
- * @param length Length of the received message.
  *
- * @retval 0 Too long or too short.
+ * @param message_length Length of the received message.
+ * @param error_length   Where to write (on success) the length of protocol_error_message_t::error
+ *                       to. Mustn't be `NULL`.
+ *
+ * @retval 0 Too long, too short or `NULL` @p error_length (in this last case, `errno = EINVAL`).
  * @retval 1 Valid length.
  */
-int protocol_error_message_check_length(size_t length);
-
-/**
- * @brief  Gets the length of an ::protocol_error_message_t from the total message length.
- * @param  message_length Total length of the message.
- * @return The length of protocol_error_message_t::error.
- */
-size_t protocol_error_message_get_error_length(size_t message_length);
+int protocol_error_message_check_length(size_t message_length, size_t *error_length);
 
 /**
  * @struct  protocol_task_id_message_t
@@ -243,7 +230,8 @@ typedef struct __attribute__((packed)) {
 } protocol_task_id_message_t;
 
 /** @brief The maximum length of protocol_status_response_message_t::command_line. */
-#define PROTOCOL_STATUS_MAXIMUM_LENGTH (PIPE_BUF - sizeof(uint8_t) * 2 - 4 * sizeof(double))
+#define PROTOCOL_STATUS_MAXIMUM_LENGTH                                                             \
+    (PIPE_BUF - sizeof(uint8_t) * 3 - sizeof(uint32_t) - 4 * sizeof(double))
 
 /** @brief The status of a task in a ::protocol_status_response_message_t. */
 typedef enum {
@@ -260,6 +248,10 @@ typedef enum {
  *     @brief Must be ::PROTOCOL_S2C_STATUS.
  * @var protocol_status_response_message_t::status
  *     @brief Status of the task this message refers to.
+ * @var protocol_status_response_message_t::id
+ *     @brief Identifier of the task this message refers to.
+ * @var protocol_status_response_message_t::error
+ *     @brief Whether an error occurred while running the task this message refers to.
  * @var protocol_status_response_message_t::time_c2s_fifo
  *     @brief Time in microseconds that it took for the task to get from the client to the server.
  * @var protocol_status_response_message_t::time_waiting
@@ -277,17 +269,22 @@ typedef enum {
 typedef struct __attribute__((packed)) {
     protocol_s2c_msg_type  type   : 8;
     protocol_task_status_t status : 8;
+    uint32_t               id;
+    uint8_t                error;
     double                 time_c2s_fifo, time_waiting, time_executing, time_s2s_fifo;
     char                   command_line[PROTOCOL_STATUS_MAXIMUM_LENGTH];
 } protocol_status_response_message_t;
 
 /**
  * @brief Creates a new message to report the status of a task to the client.
- * @param out      Where to output the message to. Mustn't be `NULL`. Will only be modified when
- *                 this function succeeds.
- * @param out_size Where to output the number of bytes in the final message to. Mustn't be `NULL`.
- *                 Will only be set when this function succeeds.
+ *
+ * @param out          Where to output the message to. Mustn't be `NULL`. Will only be modified when
+ *                     this function succeeds.
+ * @param out_size     Where to output the number of bytes in the final message to. Mustn't be
+ *                     `NULL`. Will only be set when this function succeeds.
  * @param command_line Command line of the task. Mustn't be `NULL`.
+ * @param id           Identifier of the task this message refers to.
+ * @param error        Whether an error occurred while running the task this message refers to.
  * @param times        Result of calling ::tagged_task_get_time for every ::tagged_task_time_t.
  *
  * @retval 0 Success.
@@ -302,23 +299,20 @@ int protocol_status_response_message_new(
     protocol_status_response_message_t *out,
     size_t                             *out_size,
     const char                         *command_line,
+    uint32_t                            id,
+    uint8_t                             error,
     const struct timespec              *times[TAGGED_TASK_TIME_COMPLETED + 1]);
 
 /**
  * @brief Checks if a received ::protocol_status_response_message_t can have a given length.
- * @param length Length of the received message.
  *
- * @retval 0 Too long or too short.
+ * @param message_length Length of the received message.
+ * @param command_length Where to write (on success) the length of
+ *                       protocol_status_response_message_t::command_line to. Mustn't be `NULL`.
+ *
+ * @retval 0 Too long, too short or `NULL` @p command_length (in this last case, `errno = EINVAL`).
  * @retval 1 Valid length.
  */
-int protocol_status_response_message_check_length(size_t length);
-
-/**
- * @brief  Gets the length of protocol_status_response_message_t::command_line from the total
- *         message length.
- * @param  message_length Total length of the message.
- * @return The length of protocol_status_response_message_t::command_line.
- */
-size_t protocol_status_response_get_command_length(size_t message_length);
+int protocol_status_response_message_check_length(size_t message_length, size_t *command_length);
 
 #endif

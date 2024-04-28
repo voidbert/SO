@@ -26,7 +26,8 @@
 
 /**
  * @struct task
- * @brief  A single program or pipeline that must be executed.
+ * @brief  A single program or pipeline that must be executed, or a procedure executable in a child
+ *        processs.
  *
  * @var task::programs
  *     @brief   Array of programs in the pipeline.
@@ -112,18 +113,6 @@ task_t *task_new_from_procedure(task_procedure_t procedure, void *state) {
     return ret;
 }
 
-task_t *task_clone(const task_t *task) {
-    if (!task) {
-        errno = EINVAL;
-        return NULL;
-    }
-
-    if (task->programs)
-        return task_new_from_programs((const program_t *const *) task->programs, task->length);
-    else
-        return task_new_from_procedure(task->procedure, task->procedure_state);
-}
-
 void task_free(task_t *task) {
     if (!task)
         return; /* Don't set EINVAL, as that's normal free behavior. */
@@ -134,6 +123,18 @@ void task_free(task_t *task) {
         free(task->programs);
     }
     free(task);
+}
+
+task_t *task_clone(const task_t *task) {
+    if (!task) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if (task->programs)
+        return task_new_from_programs((const program_t *const *) task->programs, task->length);
+    else
+        return task_new_from_procedure(task->procedure, task->procedure_state);
 }
 
 int task_add_program(task_t *task, const program_t *program) {

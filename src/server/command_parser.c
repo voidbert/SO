@@ -24,12 +24,15 @@
 
 #include "server/command_parser.h"
 
+/** @brief Initial value of command_parser_token_t::capacity.  */
+#define COMMAND_PARSER_TOKEN_INITIAL_CAPACITY 32
+
 /**
  * @struct command_parser_token_t
  * @brief  Token in a command line.
  *
  * @var command_parser_token_t::string
- *     @brief Contents of the token.
+ *     @brief Contents of the token. It's owned by this `struct`.
  * @var command_parser_token_t::length
  *     @brief Number of characters in command_parser_token_t::string.
  * @var command_parser_token_t::capacity
@@ -45,9 +48,6 @@ typedef struct {
     int    is_pipe;
 } command_parser_token_t;
 
-/** @brief Initial value of command_parser_token_t::capacity.  */
-#define COMMAND_PARSER_INITIAL_TOKEN_CAPACITY 32
-
 /**
  * @brief   Creates a new empty token.
  * @returns A new token on success, `NULL` on allocation error (`errno = ENOMEM`).
@@ -59,7 +59,7 @@ command_parser_token_t *__command_parser_token_new_empty(void) {
 
     ret->is_pipe  = 0;
     ret->length   = 0;
-    ret->capacity = COMMAND_PARSER_INITIAL_TOKEN_CAPACITY;
+    ret->capacity = COMMAND_PARSER_TOKEN_INITIAL_CAPACITY;
     ret->string   = malloc(sizeof(char) * ret->capacity);
     if (!ret->string) {
         free(ret);
@@ -71,12 +71,12 @@ command_parser_token_t *__command_parser_token_new_empty(void) {
 }
 
 /**
- * @brief Frees memory used by a token.
+ * @brief Frees memory used by a ::command_parser_token_t.
  * @param token Token to have its memory released. Mustn't be `NULL`.
  */
 void __command_parser_token_free(command_parser_token_t *token) {
     if (!token)
-        return; /* Don't set EINVAL, as that's normal free behavior */
+        return; /* Don't set errno, as that's normal free behavior */
     free(token->string);
     free(token);
 }
@@ -88,7 +88,7 @@ void __command_parser_token_free(command_parser_token_t *token) {
  * @param c     Character to be added to @p token.
  *
  * @retval 0 Success.
- * @retval 1 Invalid arguments (@p token is `NULL`) or allocation failure.
+ * @retval 1 Failure (check `errno`).
  *
  * | `errno`  | Cause               |
  * | -------- | ------------------- |
@@ -127,20 +127,21 @@ int __command_parser_token_append(command_parser_token_t *token, char c) {
     do {                                                                                           \
         if (__command_parser_token_append(token, c)) {                                             \
             __command_parser_token_free(token);                                                    \
-            return NULL; /* errno = ENOMEM guaranteed */                                           \
+            return NULL;                                                                           \
         }                                                                                          \
     } while (0)
 
 /**
  * @brief  Gets the next token from a command line.
- * @param  remaining Pointer to part of command line still left to tokenize.  Will be updated to the
- *                   position after the token read.
- * @return A new token, or `NULL` on failure.
+ * @param  remaining Pointer to part of command line still left to tokenize. On success, this will
+ *                   be updated to have the position after the token read.
+ * @return A new token, or `NULL` on failure (check `errno`).
  *
- * | `errno`  | Cause                                                                  |
- * | -------- | ---------------------------------------------------------------------- |
- * | `EINVAL` | @p remaining is `NULL`, points to a `NULL` string, or parsing failure. |
- * | `ENOMEM` | Allocation failure.                                                    |
+ * | `errno`  | Cause                                                |
+ * | -------- | ---------------------------------------------------- |
+ * | `EINVAL` | @p remaining is `NULL` or points to a `NULL` string. |
+ * | `EILSEQ` | Parsing failure.                                     |
+ * | `ENOMEM` | Allocation failure.                                  |
  */
 command_parser_token_t *__command_parser_token_next(const char **remaining) {
     if (!remaining || !*remaining) {
@@ -182,7 +183,7 @@ command_parser_token_t *__command_parser_token_next(const char **remaining) {
                         APPEND_ERROR_CHECK(token, '\\');
                         APPEND_ERROR_CHECK(token, *cursor);
                     } else {
-                        errno = EINVAL; /* Unterminated escape sequence */
+                        errno = EILSEQ; /* Unterminated escape sequence */
                         __command_parser_token_free(token);
                         return NULL;
                     }
@@ -223,7 +224,7 @@ command_parser_token_t *__command_parser_token_next(const char **remaining) {
 
     if (in_double_quotes || in_single_quotes) {
         /* Parsing error: unclosed quotation marks */
-        errno = EINVAL;
+        errno = EILSEQ;
         __command_parser_token_free(token);
         return NULL;
     }
@@ -235,25 +236,6 @@ command_parser_token_t *__command_parser_token_next(const char **remaining) {
         __command_parser_token_free(token);
         return NULL; /* End of string */
     }
-}
-
-program_t *command_parser_parse_command(const char *command_line) {
-    task_t *full_task = command_parser_parse_task(command_line);
-    if (!full_task)
-        return NULL; /* Keep errno */
-
-    size_t                  nprograms;
-    const program_t *const *programs = task_get_programs(full_task, &nprograms);
-
-    if (nprograms != 1) {
-        errno = EINVAL; /* Parsing error: contains pipes */
-        task_free(full_task);
-        return NULL;
-    }
-
-    program_t *ret = program_clone(programs[0]);
-    task_free(full_task);
-    return ret;
 }
 
 task_t *command_parser_parse_task(const char *command_line) {
@@ -279,7 +261,7 @@ task_t *command_parser_parse_task(const char *command_line) {
     while ((token = __command_parser_token_next(&remaining))) {
         if (token->is_pipe) {
             if (program_get_argument_count(current_program) == 0) {
-                errno = EINVAL; /* Parsing error (empty command) */
+                errno = EILSEQ; /* Parsing error (empty command) */
                 goto FAILURE;
             }
 
@@ -292,7 +274,7 @@ task_t *command_parser_parse_task(const char *command_line) {
                 goto FAILURE; /* ENOMEM */
 
         } else if (program_add_argument(current_program, token->string)) {
-            goto FAILURE;
+            goto FAILURE; /* ENOMEM */
         }
 
         __command_parser_token_free(token);
@@ -302,12 +284,12 @@ task_t *command_parser_parse_task(const char *command_line) {
         goto FAILURE; /* Keep errno from tokenizer */
 
     if (program_get_argument_count(current_program) == 0) {
-        errno = EINVAL; /* Parsing error (empty command) */
+        errno = EILSEQ; /* Parsing error (empty command) */
         goto FAILURE;
     }
 
     if (task_add_program(ret, current_program))
-        goto FAILURE;
+        goto FAILURE; /* ENOMEM */
 
     program_free(current_program);
     return ret;

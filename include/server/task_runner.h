@@ -27,14 +27,15 @@
 /**
  * @brief Entry point to the child that runs processes in tasks.
  *
- * @param task   Task to be run.
- * @param slot   Slot in the scheduler where this task was scheduled, used to identify this task
- *               when compeleted.
- * @param secret Secret random number needed to authenticate the termination of the task.
+ * @param task      Task to be run.
+ * @param slot      Slot in the scheduler where this task was scheduled, used to identify this task
+ *                  when compeleted.
+ * @param directory Directory path where to write output and error files.
  *
  * @return 0 Success.
- * @return 1 Failure. `errno` is not set as the process `_exit()`s after calling this.
+ * @return 1 Failure. The value of `errno` is unspecified, as the process `_exit()`s after calling
+ *           this.
  */
-int task_runner_main(tagged_task_t *task, size_t slot, uint64_t secret);
+int task_runner_main(tagged_task_t *task, size_t slot, const char *directory);
 
 #endif

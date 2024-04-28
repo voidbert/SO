@@ -16,7 +16,8 @@
 
 /**
  * @file    client/client_requests.h
- * @brief   Emitter of requests from the client to the server and handler of requests in the opposite direction.
+ * @brief   Emitter of requests from the client to the server and handler of requests in the
+ *          opposite direction.
  * @details See protocol.h and read the assignment's report for the specification of the protocol
  *          used.
  */
@@ -27,7 +28,7 @@
 #include <inttypes.h>
 
 /**
- * @brief   Submits a command (task that cannot contain pipelines) to the server.
+ * @brief   Submits a program (task that cannot contain pipelines) to the server.
  * @details This procedure will output to `stderr` in case of error.
  *
  * @param command_line  Command line of the command to be sent. Mustn't be `NULL`.
@@ -51,10 +52,10 @@ int client_requests_send_program(const char *command_line, uint32_t expected_tim
 int client_requests_send_task(const char *command_line, uint32_t expected_time);
 
 /**
- * @brief Asks the server to send over its status.
+ * @brief   Asks the server to send over its status.
  * @details This procedure will output to `stderr` in case of error.
- * @return The value to be returned by `main()`. No `errno` is unspecified, as all errors are
- *         printed to `stderr`.
+ * @return  The value to be returned by `main()`. No `errno` is unspecified, as all errors are
+ *          printed to `stderr`.
  */
 int client_request_ask_status(void);
 

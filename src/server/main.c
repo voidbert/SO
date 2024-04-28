@@ -19,24 +19,24 @@
  * @brief Contains the entry point to the server program.
  */
 
-#include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "server/server_requests.h"
+#include "util.h"
 
 /**
- * @brief  Prints the usage of the program to `stderr`.
+ * @brief  Prints the usage of the orchestrator program to `stderr`.
  * @param  program_name `argv[0]`.
  * @return Always `1`.
  */
 int __main_help_message(const char *program_name) {
-    fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "  See this message: %s help\n", program_name);
-    fprintf(stderr,
-            "  Run server:       %s (output folder) (number of tasks) (policy)\n",
-            program_name);
-    fprintf(stderr, "    where policy = fcfs | sjf\n");
+    util_error("Usage:\n");
+    util_error("  See this message: %s help\n", program_name);
+    util_error("  Run server:       %s (output folder) (number of tasks) (policy)\n", program_name);
+    util_error("    where policy = fcfs | sjf\n");
     return 1;
 }
 
@@ -50,7 +50,23 @@ int main(int argc, char **argv) {
         (void) __main_help_message(argv[0]);
         return 0;
     } else if (argc == 4) {
-        /* TODO - create directory */
+        if (mkdir(argv[1], 0700)) {
+            if (errno == EEXIST) {
+                struct stat statbuf;
+                if (stat(argv[1], &statbuf)) {
+                    util_perror("main(): stat() failed");
+                    return 1;
+                }
+
+                if (S_ISDIR(statbuf.st_mode)) {
+                    util_error("%s(): A file exists in the directory's place\n", __func__);
+                    return 1;
+                }
+            } else {
+                util_perror("main(): Failed to create server's directory");
+                return 1;
+            }
+        }
 
         char         *integer_end;
         unsigned long ntasks = strtoul(argv[2], &integer_end, 10);

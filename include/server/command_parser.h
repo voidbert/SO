@@ -25,29 +25,17 @@
 #include <server/task.h>
 
 /**
- * @brief Parses a command line that cannot be a pipeline.
- * @param command_line Command line to be parsed.
- *
- * @return On success, a program. On failure, `NULL` will be returned.
- *
- * | `errno`  | Cause                                         |
- * | -------- | --------------------------------------------- |
- * | `EINVAL` | @p command_line is `NULL` or parsing failure. |
- * | `ENOMEM` | Allocation failure.                           |
- */
-program_t *command_parser_parse_command(const char *command_line);
-
-/**
  * @brief Parses a command line.
  * @param command_line Command line to be parsed.
  *
  * @return On success, a task composed of either a single program or a pipeline. On failure, `NULL`
  *         will be returned.
  *
- * | `errno`  | Cause                                         |
- * | -------- | --------------------------------------------- |
- * | `EINVAL` | @p command_line is `NULL` or parsing failure. |
- * | `ENOMEM` | Allocation failure.                           |
+ * | `errno`  | Cause                      |
+ * | -------- | -------------------------- |
+ * | `EINVAL` | @p command_line is `NULL`. |
+ * | `EILSEQ` | Parsing failure.           |
+ * | `ENOMEM` | Allocation failure.        |
  */
 task_t *command_parser_parse_task(const char *command_line);
 

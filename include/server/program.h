@@ -29,7 +29,8 @@ typedef struct program program_t;
 
 /**
  * @brief   Creates a empty program.
- * @details This program isn't valid, and needs to be populated with arguments.
+ * @details This program isn't valid, and needs to be populated with arguments (see
+ *          ::program_add_argument).
  * @return  A new program on success, or `NULL` on allocation failure (`errno = ENOMEM`).
  */
 program_t *program_new_empty(void);
@@ -37,8 +38,8 @@ program_t *program_new_empty(void);
 /**
  * @brief Creates a new program from its arguments.
  *
- * @param arguments Array of program arguments (including program name). Can be `NULL` for this
- *                  method to have the same behavior as ::program_new_empty.
+ * @param arguments Array of program arguments (including program name). Can be `NULL`, in which
+ *                  case this method to have the same behavior as ::program_new_empty.
  * @param length    Number of arguments in @p arguments. Can be `-1` if @p arguments is
  *                  `NULL`-terminated. Must be `0` if @p arguments is NULL.
  *
@@ -52,8 +53,14 @@ program_t *program_new_empty(void);
 program_t *program_new_from_arguments(const char *const *arguments, ssize_t length);
 
 /**
+ * @brief Frees memory used by a program.
+ * @param program Program to be deleted.
+ */
+void program_free(program_t *program);
+
+/**
  * @brief  Creates a deep copy of a program.
- * @param  program Program to be cloned.
+ * @param  program Program to be cloned. Mustn't be `NULL`.
  * @return A copy of @p program on success, NULL on failure (check `errno`).
  *
  * | `errno`  | Cause                |
@@ -64,26 +71,10 @@ program_t *program_new_from_arguments(const char *const *arguments, ssize_t leng
 program_t *program_clone(const program_t *program);
 
 /**
- * @brief Frees memory used by a program.
- * @param program Program to be deleted.
- */
-void program_free(program_t *program);
-
-/**
- * @brief Checks if two programs are equal.
- *
- * @param a First program to compare. Can be `NULL`.
- * @param b Second program to compare. Can be `NULL`.
- *
- * @return Whether @p a and @p b are the same command line.
- */
-int program_equals(const program_t *a, const program_t *b);
-
-/**
  * @brief Appends an argument to a program's argument list.
  *
- * @param program  Program to be modified.
- * @param argument Argument to be added to @p program.
+ * @param program  Program to be modified. Mustn't be `NULL`.
+ * @param argument Argument to be added to @p program. Mustn't be `NULL`.
  *
  * @retval 0 Success.
  * @retval 1 Invalid arguments or allocation failure (check `errno`).

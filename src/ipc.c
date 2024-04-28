@@ -29,13 +29,26 @@
 #include <unistd.h>
 
 #include "ipc.h"
+#include "util.h"
+
+/* Ignore __attribute__((packed)) if it's unavailable. */
+#ifndef __GNUC__
+    /** @cond FALSE */
+    #define __attribute__()
+/** @endcond */
+#else
+/*
+     * The program may break if the compiler doesn't support the removal of struct padding. However,
+     * there is no standard way of throwing an error to warn the user.
+     */
+#endif
 
 /** @brief File path of FIFO that the server listens to. */
 #define IPC_SERVER_FIFO_PATH "/tmp/orchestrator.fifo"
 
 /**
  * @brief   File path of FIFO that a client listens to.
- * @details Format string, where `%ld` is replaced by the client's PID.
+ * @details Format string, where `%ld` is replaced by the client's PID (casted to a `long`).
  */
 #define IPC_CLIENT_FIFO_PATH "/tmp/client%ld.fifo"
 
@@ -44,16 +57,17 @@
 
 /**
  * @struct ipc
- * @brief  An inter-process connection.
+ * @brief  An inter-process connection using named pipes.
  *
  * @var ipc::this_endpoint
  *     @brief The type of this program in the communication (client or server).
  * @var ipc::send_fd
  *     @brief   The file descriptor to write to in order to transmit data.
- *     @details Will be `-1` for newly created ::IPC_ENDPOINT_SERVER connections.
+ *     @details Will be `-1` for newly created ::IPC_ENDPOINT_SERVER connections, as the client
+ *              isn't known before the first message is received.
  * @var ipc::receive_fd
  *     @brief   The file descriptor to read from in order to receive data.
- *     @details Will be `-1` for any connection not actively being listened on.
+ *     @details Will be `-1` for any connection not currently being listened on.
  * @var ipc::send_fd_pid
  *     @brief   PID of the process the server is communicating with (only for ::IPC_ENDPOINT_SERVER)
  *     @details Will be `-1` for new connection.
@@ -63,6 +77,22 @@ struct ipc {
     int            send_fd, receive_fd;
     pid_t          send_fd_pid;
 };
+
+/**
+ * @struct ipc_frame_t
+ * @brief  A frame containing a message, sent by an ::ipc_t.
+ *
+ * @var ipc_frame_t::signature
+ *     @brief Must be ::IPC_MESSAGE_HEADER_SIGNATURE.
+ * @var ipc_frame_t::payload_length
+ *     @brief Number of bytes in ipc_frame_t::message.
+ * @var ipc_frame_t::message
+ *     @brief Encapsulated message with a length of ipc_frame_t::payload_length bytes.
+ */
+typedef struct __attribute__((packed)) {
+    uint32_t signature, payload_length;
+    uint8_t  message[IPC_MAXIMUM_MESSAGE_LENGTH];
+} ipc_frame_t;
 
 /**
  * @brief Generates the path to the named pipe owned by this endpoint based on its type.
@@ -101,7 +131,7 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint) {
         (void) unlink(fifo_path);
         errno = 0;
 
-        /* Client can read and write and everyone else can read (don't know server's group) */
+        /* Client can read and write and everyone else can write (don't know server's group) */
         if (mkfifo(fifo_path, 0622)) {
             free(ret);
             return NULL;
@@ -132,6 +162,20 @@ ipc_t *ipc_new(ipc_endpoint_t this_endpoint) {
     return ret;
 }
 
+void ipc_free(ipc_t *ipc) {
+    if (!ipc)
+        return; /* Don't set errno, as that's not typical free behavior. */
+
+    if (ipc->send_fd > 0)
+        (void) close(ipc->send_fd);
+
+    char fifo_path[PATH_MAX];
+    __ipc_get_owned_fifo_path(ipc->this_endpoint, fifo_path);
+    (void) unlink(fifo_path);
+
+    free(ipc);
+}
+
 int ipc_send(ipc_t *ipc, const void *message, size_t length) {
     if (!ipc || ipc->send_fd < 0 || !message) {
         errno = EINVAL;
@@ -143,25 +187,12 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length) {
         return 1;
     }
 
-    uint8_t wrapped_message[PIPE_BUF];
-    ssize_t wrapped_message_length      = length + 2 * sizeof(uint32_t);
-    *((uint32_t *) wrapped_message)     = IPC_MESSAGE_HEADER_SIGNATURE;
-    *((uint32_t *) wrapped_message + 1) = (uint32_t) length;
-    memcpy(wrapped_message + 2 * sizeof(uint32_t), message, length);
+    ipc_frame_t frame = {.signature = IPC_MESSAGE_HEADER_SIGNATURE, .payload_length = length};
+    memcpy(frame.message, message, length);
+    ssize_t frame_length = length + 2 * sizeof(uint32_t);
 
-    /*
-     * The following write() won't, in principle, block the server if the pipe buffer is full.
-     *
-     * - If the client has closed its file descriptor, this will fail with EPIPE.
-     * - If the client hasn't closed the file descriptor, it's running ipc_listen, thus consuming
-     *   information in the pipe and emptying its buffer.
-     *
-     * This may block if the client is malicious and opens its file descriptor for reading and
-     * doesn't read from it, while another program fills the pipe buffer. However, as explained in
-     * the report, we won't protect the server against malicious blocks because many of them can't
-     * be dealt with without using signals for timeouts, which we're not allowed to do.
-     */
-    if (write(ipc->send_fd, wrapped_message, wrapped_message_length) != wrapped_message_length)
+    (void) signal(SIGPIPE, SIG_DFL); /* No errors other than EINVAL */
+    if (write(ipc->send_fd, &frame, frame_length) != frame_length)
         return 1;
     return 0;
 }
@@ -177,22 +208,18 @@ int ipc_send_retry(ipc_t *ipc, const void *message, size_t length, unsigned int 
         return 1;
     }
 
-    uint8_t wrapped_message[PIPE_BUF];
-    ssize_t wrapped_message_length      = length + 2 * sizeof(uint32_t);
-    *((uint32_t *) wrapped_message)     = IPC_MESSAGE_HEADER_SIGNATURE;
-    *((uint32_t *) wrapped_message + 1) = (uint32_t) length;
-    memcpy(wrapped_message + 2 * sizeof(uint32_t), message, length);
+    ipc_frame_t frame = {.signature = IPC_MESSAGE_HEADER_SIGNATURE, .payload_length = length};
+    memcpy(frame.message, message, length);
+    ssize_t frame_length = length + 2 * sizeof(uint32_t);
 
     (void) signal(SIGPIPE, SIG_IGN); /* No errors other than EINVAL */
     unsigned int recovered = 0;
     for (unsigned int i = 0; i < max_tries; ++i) {
-        if (write(ipc->send_fd, wrapped_message, wrapped_message_length) ==
-            wrapped_message_length) {
-
+        if (write(ipc->send_fd, &frame, frame_length) == frame_length) {
             if (recovered)
-                fprintf(stderr,
-                        "IPC synchronization error recovered from (%u attempts)\n",
-                        recovered);
+                util_error("%s(): IPC synchronization error recovered from (%u attempts)\n",
+                           __func__,
+                           recovered);
             return 0;
         }
 
@@ -257,43 +284,18 @@ void __ipc_flush_and_close(ipc_t *ipc) {
     uint8_t buf[IPC_SERVER_LISTEN_BUFFER_SIZE];
     while (read(ipc->receive_fd, buf, IPC_SERVER_LISTEN_BUFFER_SIZE) > 0)
         ;
+
+    int errno2 = errno;
     (void) close(ipc->receive_fd);
+    errno = errno2;
+
     ipc->receive_fd = -1;
-}
-
-/**
- * @brief   Validates if the header of a frame transmitted in a pipe is valid.
- * @details Header validity is checked for itself, not in the context the header is in.
- *          Auxiliary function for ::ipc_listen.
- *
- * @param frame          First eight bytes of the frame. Mustn't be `NULL` (not checked).
- * @param message_length Where to output the message length to. Mustn't be `NULL` (not checked).
- *
- * @retval 0 Valid header.
- * @retval 1 Invalid header.
- */
-int __ipc_validate_frame_header(uint32_t frame[2], uint32_t *message_length) {
-    if (frame[0] != IPC_MESSAGE_HEADER_SIGNATURE) {
-        fprintf(stderr,
-                "Protocol error: dropping input frames! Lost track of header signatures!\n");
-        return 1;
-    }
-
-    *message_length = frame[1];
-    if (*message_length > IPC_MAXIMUM_MESSAGE_LENGTH) {
-        fprintf(stderr, "Protocol error: dropping input frames! Very long frame found!\n");
-        return 1;
-    }
-
-    return 0;
 }
 
 int ipc_listen(ipc_t                         *ipc,
                ipc_on_message_callback_t      message_cb,
                ipc_on_before_block_callback_t block_cb,
                void                          *state) {
-    /* TODO - input fuzzing tests to try and break this */
-
     if (!ipc || !message_cb || !block_cb) {
         errno = EINVAL;
         return 1;
@@ -312,7 +314,7 @@ int ipc_listen(ipc_t                         *ipc,
             bytes_read =
                 read(ipc->receive_fd, buf + residuals, IPC_SERVER_LISTEN_BUFFER_SIZE - residuals);
             if (bytes_read < 0) { /* Read error */
-                perror("Recovering from read() error");
+                util_perror("ipc_listen(): Recovering from read() error");
                 (void) close(ipc->receive_fd);
                 ipc->receive_fd = -1;
                 break;
@@ -321,18 +323,21 @@ int ipc_listen(ipc_t                         *ipc,
             ssize_t  remaining   = residuals + bytes_read;
             uint8_t *buffer_read = buf;
             while (remaining > (ssize_t) (2 * sizeof(uint32_t))) {
-                /* Validate header by itself */
-                uint32_t message_length;
-                if (__ipc_validate_frame_header((uint32_t *) buffer_read, &message_length)) {
+                ipc_frame_t *frame = (ipc_frame_t *) buffer_read;
+
+                if (frame->signature != IPC_MESSAGE_HEADER_SIGNATURE ||
+                    frame->payload_length == 0 ||
+                    frame->payload_length > IPC_MAXIMUM_MESSAGE_LENGTH) {
+                    util_error("%s(): dropping input frames! Invalid frame!\n", __func__);
                     __ipc_flush_and_close(ipc);
                     break;
                 }
 
                 /* Validate header in context */
-                uint32_t frame_length = message_length + 2 * sizeof(uint32_t);
+                uint32_t frame_length = frame->payload_length + 2 * sizeof(uint32_t);
                 if (frame_length > remaining) {
                     if (bytes_read == 0) { /* EOF */
-                        fprintf(stderr, "Protocol error: dropping input frame! Not enough data!\n");
+                        util_error("%s(): dropping input frame! Not enough data!\n", __func__);
                         (void) close(ipc->receive_fd);
                         ipc->receive_fd = -1;
                         break;
@@ -344,7 +349,7 @@ int ipc_listen(ipc_t                         *ipc,
                 }
 
                 /* Dispatch message */
-                int mcb_ret = message_cb(buffer_read + 2 * sizeof(uint32_t), message_length, state);
+                int mcb_ret = message_cb(frame->message, frame->payload_length, state);
                 if (mcb_ret) {
                     __ipc_flush_and_close(ipc);
                     return mcb_ret;
@@ -362,7 +367,7 @@ int ipc_listen(ipc_t                         *ipc,
                 }
 
                 if (remaining > 0 && remaining <= (ssize_t) (2 * sizeof(uint32_t)))
-                    fprintf(stderr, "Protocol error: dropping input frame! Not enough data!\n");
+                    util_error("%s(): dropping input frame! Not enough data!\n", __func__);
             } else {
                 break;
             }
@@ -374,24 +379,4 @@ int ipc_listen(ipc_t                         *ipc,
     }
 
     return 0;
-}
-
-void ipc_free(ipc_t *ipc) {
-    if (!ipc)
-        return; /* Don't set errno, as that's not typical free behavior. */
-
-    if (ipc->send_fd > 0)
-        (void) close(ipc->send_fd);
-    if (ipc->receive_fd > 0)
-        (void) close(ipc->receive_fd);
-
-    if (ipc->this_endpoint == IPC_ENDPOINT_CLIENT) {
-        char fifo_path[PATH_MAX];
-        snprintf(fifo_path, PATH_MAX, IPC_CLIENT_FIFO_PATH, (long) getpid());
-        (void) unlink(fifo_path);
-    } else {
-        (void) unlink(IPC_SERVER_FIFO_PATH);
-    }
-
-    free(ipc);
 }
