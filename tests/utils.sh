@@ -51,7 +51,7 @@ start_orchestrator() {
 		return 1
 	fi
 
-	rm -r "/tmp/"*".fifo" "/tmp/orchestrator" > /dev/null 2>&1
+	rm -rf "/tmp/"*".fifo" "/tmp/orchestrator" > /dev/null 2>&1
 	nohup "./bin/orchestrator" "/tmp/orchestrator" "$1" "$2" 0<&- &> "$3" &
 	pgrep "orchestrator"
 	return 0
