@@ -23,11 +23,11 @@
 
 . "$(dirname "$0")/utils.sh" || exit 1
 
-orchestrator_pid=$(start_orchestrator 1 fcfs "/dev/null") || exit 1
-
 assert_installed_command "yt-dlp"
 assert_installed_command "ffmpeg"
 assert_installed_command "mpv"
+
+orchestrator_pid=$(start_orchestrator 1 fcfs "/dev/null") || exit 1
 
 pipeline=(
 	"yt-dlp https://youtu.be/dQw4w9WgXcQ -o - |"
