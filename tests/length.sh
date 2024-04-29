@@ -18,7 +18,7 @@
 
 # This test attempts to send very long messages to make sure the server handles them correctly.
 
-MAX_LENGTH=4063 # To know this value, run ./bin/client execute 100 -u ""
+MAX_LENGTH=4067 # To know this value, run ./bin/client execute 100 -u ""
 
 . "$(dirname "$0")/utils.sh" || exit 1
 

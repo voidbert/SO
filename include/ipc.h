@@ -61,7 +61,7 @@ typedef int (*ipc_on_message_callback_t)(uint8_t *message, size_t length, void *
 typedef int (*ipc_on_before_block_callback_t)(void *state);
 
 /** @brief The maximum length of a message that can be sent by ::ipc_send. */
-#define IPC_MAXIMUM_MESSAGE_LENGTH (PIPE_BUF - 2 * sizeof(uint32_t))
+#define IPC_MAXIMUM_MESSAGE_LENGTH (PIPE_BUF - sizeof(uint32_t))
 
 /** @brief A bidirectional inter-process connection using named pipes. */
 typedef struct ipc ipc_t;
