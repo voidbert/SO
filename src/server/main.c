@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
                     return 1;
                 }
 
-                if (S_ISDIR(statbuf.st_mode)) {
+                if (!S_ISDIR(statbuf.st_mode)) {
                     util_error("%s(): A file exists in the directory's place\n", __func__);
                     return 1;
                 }
