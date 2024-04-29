@@ -28,7 +28,7 @@ server_err=$(mktemp) || exit 1
 for i in $(seq 1 10); do
 	orchestrator_pid=$(start_orchestrator 1 fcfs "$server_err") || exit 1
 	for j in $(seq 1 10000); do
-		./bin/client execute 100 -u "echo 123" > /dev/null || echo "Client died" 1>&2
+		./bin/client execute 100 -u "echo $j" > /dev/null || echo "Client died" 1>&2
 	done
 	stop_orchestrator true "$orchestrator_pid"
 	echo "Progress: $((i * 10))%"

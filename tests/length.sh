@@ -26,11 +26,11 @@ orchestrator_pid=$(start_orchestrator 1 fcfs "/dev/null") || exit 1
 
 message="$(yes | tr -d '\n' | head -c"$MAX_LENGTH")"
 ./bin/client execute 100 -u "$(echo "$message" | head -c$((MAX_LENGTH - 20)))" > /dev/null 2>&1 || \
-    echo "MAX_LENGTH too long" 1>&2
+	echo "MAX_LENGTH too long" 1>&2
 ./bin/client execute 100 -u "$message" > /dev/null 2>&1 || \
-    echo "MAX_LENGTH too long" 1>&2
+	echo "MAX_LENGTH too long" 1>&2
 ./bin/client execute 100 -u "y$message" > /dev/null 2>&1 && \
-    echo "MAX_LENGTH shorter than real maximum" 1>&2
+	echo "MAX_LENGTH shorter than real maximum" 1>&2
 
 ./bin/client status
 stop_orchestrator true "$orchestrator_pid"
