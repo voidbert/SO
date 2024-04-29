@@ -21,8 +21,6 @@
 
 . "$(dirname "$0")/utils.sh" || exit 1
 
-# TODO - fix ipc_error
-
 orchestrator_pid=$(start_orchestrator 1 fcfs "/dev/null") || exit 1
 
 for i in $(seq 1 5000); do
