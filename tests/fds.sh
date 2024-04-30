@@ -22,7 +22,7 @@
 if [ -z "$1" ]; then
 	. "$(dirname "$0")/utils.sh" || exit 1
 
-	orchestrator_pid=$(start_orchestrator 1 fcfs "test.txt") || exit 1
+	orchestrator_pid=$(start_orchestrator 1 fcfs "/dev/null") || exit 1
 	./bin/client execute 100 -u "./tests/fds.sh 0" > /dev/null
 	./bin/client execute 100 -p "./tests/fds.sh 1 | ./tests/fds.sh 2 | ./tests/fds.sh 3" > /dev/null
 	stop_orchestrator true "$orchestrator_pid"

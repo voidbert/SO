@@ -22,20 +22,21 @@
 
 remove_units() {
 	if [ "${1: -1}" = "u" ]; then
+		# shellcheck disable=SC2001
 		echo "$1" | sed 's/u$//'
 	elif [ "${1: -1}" = "m" ]; then
+		# shellcheck disable=SC2001
 		awk 'BEGIN { printf "%.3f\n", '"$(echo "$1" | sed 's/m$//')"' * 1e3 }'
 	else
 		awk 'BEGIN { printf "%.3f\n", '"$1"' * 1e6 }'
 	fi
 }
 
-temp_out=$(mktemp) || exit 1
 for sched in "sjf" "fcfs"; do
 	echo "$sched:"
 	orchestrator_pid=$(start_orchestrator 1 "$sched" "/dev/null") || exit 1
 
-	for i in $(seq 1 100); do
+	for _ in $(seq 1 100); do
 		time_ms=$((RANDOM % 1700 + 300))
 		time_s="$(awk 'BEGIN { printf "%.3f", '"$time_ms"' / 1000 }')"
 		./bin/client execute "$time_ms" -u "sleep $time_s" > /dev/null || echo "Client died" 1>&2
@@ -48,10 +49,9 @@ for sched in "sjf" "fcfs"; do
 		tail +2 | \
 		awk '{ print substr($4, 1, 5) "s\n" $5 "\n" $6 "\n" $7 "\n" $8 }' |
 		sed 's/.$//' | \
-		while read -r line; do remove_units $line; done | \
+		while read -r line; do remove_units "$line"; done | \
 		xargs -n 5 | \
 		tr ' ' ','
 
 	stop_orchestrator true "$orchestrator_pid"
 done
-rm "$temp_out"

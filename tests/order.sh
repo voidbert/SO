@@ -22,9 +22,8 @@
 
 failed=false
 
-rm tests/test
 for sched in "sjf" "fcfs"; do
-	orchestrator_pid=$(start_orchestrator 1 "$sched" "tests/test") || exit 1
+	orchestrator_pid=$(start_orchestrator 1 "$sched" "/dev/null") || exit 1
 
 	./bin/client execute 1 -u "sleep 1" > /dev/null || echo "Client died" 1>&2
 	for i in $(seq 1 10); do
@@ -33,7 +32,7 @@ for sched in "sjf" "fcfs"; do
 
 	while pgrep -P "$orchestrator_pid" > /dev/null; do sleep 1; done # Wait for all processes
 
-	order=$(./bin/client status | awk '{print $2}' | sed -z 's/:\n/ /g' | head -c-1)
+	order=$(./bin/client status | tail +2 | awk '{print $2}' | sed -z 's/:\n/ /g' | head -c-1)
 	if [ "$sched" = "fcfs" ] && [ "$order" != "$(seq -s ' ' 1 11)" ]; then
 		echo "FCFS test failed: $order" | sed -z 's/\n/ /g; s/$/\n/g'
 		failed=true
