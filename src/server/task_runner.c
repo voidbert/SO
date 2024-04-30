@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/wait.h>
@@ -47,6 +48,7 @@ void __task_runner_wait_all_children(void) {
  * @param in      `stdin` file descriptor to be duplicated.
  * @param out     `stderr` file descriptor to be duplicated.
  * @param err     `stderr` file descriptor to be duplicated.
+ * @param ...     File descriptors to be closed by the child. Terminated with `-1`.
  *
  * @retval 0 Success.
  * @retval 1 Failure (check `errno`).
@@ -56,7 +58,7 @@ void __task_runner_wait_all_children(void) {
  * | `EINVAL` | @p program is `NULL`. |
  * | other    | See `man 2 fork`.     |
  */
-int __task_runner_spawn(const program_t *program, int in, int out, int err) {
+int __task_runner_spawn(const program_t *program, int in, int out, int err, ...) {
     if (!program) {
         errno = EINVAL;
         return 1;
@@ -65,8 +67,14 @@ int __task_runner_spawn(const program_t *program, int in, int out, int err) {
     const char *const *args = program_get_arguments(program);
     pid_t              p    = fork();
     if (p == 0) {
-        close(STDIN_FILENO); /* Don't allow reads from the user's terminal */
+        va_list close_fds;
+        va_start(close_fds, err);
+        int close_fd;
+        while ((close_fd = va_arg(close_fds, int)) != -1)
+            (void) close(close_fd);
+        va_end(close_fds);
 
+        close(STDIN_FILENO); /* Don't allow reads from the user's terminal */
         if (in != STDIN_FILENO) {
             dup2(in, STDIN_FILENO);
             close(in);
@@ -182,7 +190,13 @@ int task_runner_main(tagged_task_t *task, size_t slot, const char *directory) {
             _exit(1);
         }
 
-        if (__task_runner_spawn(programs[i], in, fds[STDOUT_FILENO], err)) {
+        if (__task_runner_spawn(programs[i],
+                                in,
+                                fds[STDOUT_FILENO],
+                                err,
+                                fds[STDIN_FILENO],
+                                out,
+                                -1)) {
             char error_msg[LINE_MAX] = {0};
             (void) strerror_r(errno, error_msg, LINE_MAX);
             util_error("%s(): fork() failed: %s\n", __func__, error_msg);
@@ -198,7 +212,7 @@ int task_runner_main(tagged_task_t *task, size_t slot, const char *directory) {
         in = fds[STDIN_FILENO];
     }
 
-    __task_runner_spawn(programs[nprograms - 1], in, out, err);
+    __task_runner_spawn(programs[nprograms - 1], in, out, err, -1);
 
     __task_runner_wait_all_children(); /* May block forever */
 

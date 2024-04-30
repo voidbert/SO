@@ -37,13 +37,5 @@ else
 		echo "Open file descriptors (pipeline step $1):"
 	fi
 
-	for fd in /proc/self/fd/*; do
-		# Remove bash specific file descriptor
-		if [ "$fd" = "/proc/self/fd/255" ]; then continue; fi
-
-		if ! name="$(readlink "$fd")"; then
-			name="?"
-		fi
-		echo "$fd: $name"
-	done
+	for fd in /proc/self/fd/*; do stat "$fd"; done
 fi
