@@ -42,7 +42,7 @@
  */
 void __client_request_print_time_unit(double time, char *out) {
     if (time >= 1000000.0)
-        sprintf(out, "%10.3lfs", time / 1000000.0);
+        sprintf(out, "%.3lfs", time / 1000000.0);
     else if (time >= 1000.0)
         sprintf(out, "%.3lfms", time / 1000.0);
     else if (isnan(time))
@@ -242,6 +242,7 @@ int client_request_ask_status(void) {
         return 1;
     }
 
+    util_log("(STATUS) ID: \"COMMAND LINE\" C2S WAIT EXECUTE S2S\n");
     if (ipc_listen(ipc, __client_requests_on_message, __client_requests_before_block, NULL) == 1)
         util_perror("client_requests_ask_status(): error opening connection");
     ipc_free(ipc);
