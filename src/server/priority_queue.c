@@ -131,13 +131,13 @@ void __priority_queue_swap(tagged_task_t **a, tagged_task_t **b) {
  * @details Auxiliary method to ::priority_queue_insert.
  *
  * @param queue     Queue to be reorganized. Mustn't be `NULL`.
- * @param placement Index of the previously inserted element. Must be in-bounds.
+ * @param placement Index of the previously inserted element.
  *
  * @retval 0 Success.
- * @retval 1 Failure because @p queue is `NULL` or @p placement is out-of-bounds (`errno = EINVAL`).
+ * @retval 1 Failure because @p queue is `NULL`.
  */
 int __priority_queue_insert_bubble_up(priority_queue_t *queue, size_t placement) {
-    if (!queue || placement >= queue->size) {
+    if (!queue) {
         errno = EINVAL;
         return 1;
     }
@@ -170,6 +170,7 @@ int priority_queue_insert(priority_queue_t *queue, const tagged_task_t *element)
 
     __priority_queue_insert_bubble_up(queue, queue->size);
     queue->size++;
+
     return 0;
 }
 
@@ -178,13 +179,13 @@ int priority_queue_insert(priority_queue_t *queue, const tagged_task_t *element)
  * @details Auxiliary method to ::priority_queue_remove_top.
  *
  * @param queue   Queue to be reorganized. Mustn't be `NULL`.
- * @param removal Index of the removed element. Must be in-bounds.
+ * @param removal Index of the removed element.
  *
  * @retval 0 Success.
- * @retval 1 Failure because @p queue is `NULL` or @p removal is out-of-bounds (`errno = EINVAL`).
+ * @retval 1 Failure because @p queue is `NULL.
  */
 int __priority_queue_remove_bubble_down(priority_queue_t *queue, size_t removal) {
-    if (!queue || removal >= queue->size) {
+    if (!queue) {
         errno = EINVAL;
         return 1;
     }
