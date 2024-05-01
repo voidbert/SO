@@ -88,4 +88,92 @@ completa do protocolo definido em \texttt{ipc.c}. Foi possível reescrever este 
 interface das funções nele definidas, e o servidor manteve-se operacional sem qualquer outra mudança
 necessária.
 
+\section{Testes executados}
+
+Foram escritos testes para avaliar diversos aspetos do \emph{software} desenvolvido, tanto de um
+ponto de vista funcional como de desempenho. Nesta secção são descritos os testes desenvolvidos e
+as correções que deles resultaram.
+
+O teste \texttt{fds.sh} verifica quais são os descritores de ficheiro abertos num processo criado
+pelo servidor em qualquer posição possível numa \emph{pipeline}. Em princípio, o descritor 0
+(\texttt{stdin}) devia estar aberto para todos os processos que não o primeiro da \emph{pipeline}, e
+os descritores 1 e 2 (\texttt{stdout} e \texttt{stderr}) deveriam ser os únicos restantes abertos.
+No entanto, outros descritores abertos foram detetados e o código de \texttt{task\_runner} foi
+corrigido para fechar alguns descritores de \emph{pipes} que se mantinham abertos. Este é o único
+teste que não corre em outros sistemas POSIX que não Linux, pois precisa de acesso à diretoria
+\texttt{/proc/self/fd}.
+
+De seguida, o teste \texttt{length.sh} verifica que o servidor suporta corretamente mensagens com o
+comprimento máximo especificado. Inicialmente, tarefas com comandos muito longos podiam ser
+escalonadas, mas não surgiam num pedido de \texttt{status} do cliente. São necessários limites de
+comprimento para garantir a atomicidade de escritas no FIFO. Caso o comprimento do comando de uma
+tarefa seja superior ao permitido por uma mensagem de estado, o comando é substituído pela
+\emph{string} \texttt{"COMMAND TOO LONG"}.
+
+O teste \texttt{order.sh} garante que os processos enviados ao servidor são escalonados corretamente
+conforme a política de escalonamento definida. Este teste não revelou qualquer erro no comportamento
+do servidor. Outro teste que não revelou problemas foi \texttt{parser.sh}, que garante que o
+\emph{parser} de linhas de comando funciona como esperado. Outro teste que não exigiu alterações ao
+código escrito foi \texttt{pipelines.sh}, que testa se os processos de uma tarefa são executados
+corretamente, permitindo que os \emph{pipes} entre eles transmitam mais informação do que a sua
+capacidade. Fá-lo através da transferência de um vídeo do YouTube, aplicando efeitos ao seu áudio, e
+reproduzindo-o, sem alguma vez escrever para o sistema de ficheiros.
+
+Ademais, o teste \texttt{status.sh} procura verificar se o servidor consegue enviar o seu estado ao
+cliente corretamente. Detetou-se perda de mensagens quando em elevadíssimo número, erro cuja causa
+não se conseguiu descobrir, levando a que o módulo \texttt{ipc} fosse reescrito para deixar de usar
+mensagens de comprimento variável, passando a utilizar mensagens de comprimento fixo.
+
+De seguida, \texttt{stress.sh} cria milhares de processos de clientes, que tentam comunicar com o
+servidor em simultâneo pelo FIFO partilhado. Detetou-se a possibilidade do servidor fechar o seu
+descritor durante a escrita de um cliente, resultando na terminação deste com um \texttt{SIGPIPE}.
+Não é um grande problema o cliente falhar, mas esta falha de comunicação pode ocorrer quando um
+processo filho do orquestrador tenta avisar o seu pai que a sua execução está prestes a terminar.
+Se o servidor não receber esta mensagem, nunca saberá que um dos seus filhos terminou e que passa a
+ter mais capacidade de escalonamento disponível. Foi-nos permitido pelo regente da UC ignorar o
+sinal através da \emph{system call} \texttt{signal}, permitindo que \texttt{write} termine com um
+código de erro, podendo retentar-se a comunicação com o servidor.
+
+Por último, o ficheiro \texttt{benchmark.sh} procura analisar o desempenho do servidor, fazendo
+pedidos de cem tarefas de duração entre 300 milissegundos e 2 segundos, executado para as políticas
+de escalonamento FCFS e SJF. No final, o estado do servidor é requisitado, revelando informação
+sobre o tempo de espera e de execução das tarefas, que sofre uma conversão para um formato CSV,
+importado para uma folha de cálculo e analisado:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{report_figures/HistogramSJF.png}
+    \includegraphics[width=0.45\textwidth]{report_figures/HistogramFCFS.png}
+    \caption{Tempos médios de execução de tarefas (desde o cliente até o fim da execução, em
+        segundos) em função da sua duração (em milissegundos), agrupada em oito conjuntos, conforme
+        a política de escalonamento usada.}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{report_figures/ScatterSJF.png}
+    \includegraphics[width=0.45\textwidth]{report_figures/ScatterFCFS.png}
+    \caption{Tempos de execução de tarefas (desde o cliente até o fim da execução, em segundos) em
+        função da sua duração (em milissegundos), conforme a política de escalonamento usada.}
+\end{figure}
+
+Conforme esperado, quando a política \emph{Shortest Job First} é utilizada, tarefas de menor duração
+passam menos tempo em fila de espera (a maior contribuição para o tempo total de execução) do que as
+tarefas mais longas, evidenciado pelo comportamento linear tanto no histograma como no
+\emph{scatter}. Por outro lado, o tempo de execução quando se aplica a política \emph{First Come
+First Served} é relativamente uniforme, evidenciado pela altura relativamente próxima das barras do
+histograma e da aleatoriedade no \emph{scatter}.
+
+Como na política SJF as tarefas mais rápidas são executadas em primeiro lugar, os tempos de espera
+das primeiras tarefas são muito baixos, reduzindo o tempo médio de espera total. Esta tese
+verifica-se: SFJ apresenta um tempo médio de espera de 402 segundos mas estes tornam-se 592 segundos
+para FCFS. No entanto, em FCFS, tarefas de maior duração experienciam menor tempo médio, como se
+observa no primeiro par de gráficos. Logo, a escolha de uma política de escalonamento depende do
+tipo de tarefa que se pretende valorizar: usa-se SJF para processos de menor duração e FCFS para
+tarefas mais longas.
+
+\section{Conclusão}
+
+% TODO
+
 \end{document}
