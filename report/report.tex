@@ -172,7 +172,44 @@ observa no primeiro par de gráficos. Logo, a escolha de uma política de escalo
 tipo de tarefa que se pretende valorizar: usa-se SJF para processos de menor duração e FCFS para
 tarefas mais longas.
 
+\section{Decisões relevantes}
+
+Nesta secção, são discutidas algumas decisões tomadas ao longo do desenvolvimento do projeto, que
+julgamos serem relevantes de mencionar.
+
+Inicialmente, o nosso grupo pensava em fazer um orquestrador seguro, capaz de estar presente num
+sistema partilhado (\emph{multiseat}). No entanto, foi rápida a conclusão de que sem virtualização
+(ou \emph{containerização}) seria possível um cliente enviar uma tarefa como \texttt{pkill
+orchestrator}. Ademais, poderiam ser envidas várias tarefas sem fim, tirando toda a capacidade ao
+servidor, sem que este as possa matar devido à impossibilidade de se utilizarem sinais. Logo, o
+objetivo de segurança foi descartado e o nosso foco passou para a robustez do servidor, que foi
+programado de modo a resistir a erros tanto internos (como \emph{system calls} falhadas) como
+externos (mensagens mal formatadas no FIFO), procurando recuperar e voltar a um estado conhecido.
+Ademais, durante o desenvolvimento era executado o \texttt{valgrind}, para procurar erros de memória
+como acessos indevidos à memória e \emph{memory leaks}. Após os vários testes realizados e falhas
+propositadamente provocadas, julgamos que o servidor seja capaz de continuar a operar corretamente
+sem \emph{crashes}.
+
+De seguida, optámos por utilizar uma \emph{minheap} (\texttt{priority\_queue}) para as políticas de
+escalonamento SJF e FCFS, apesar de tal não conduzir ao melhor desempenho. \emph{Minheaps}
+apresentam complexidades (caso médio) de $\Theta(1)$ para inserção e $\Theta(\log n)$ para remoção.
+Estas são ideais para SJF, mas seria possível uma remoção em tempo constante para FCFS caso se
+utilizasse uma fila simples. No entanto, por motivos de simplicidade, preferiu-se o uso de uma única
+estrutura de dados com pior desempenho do que a adição de código necessária para se suportarem duas
+estruturas.
+
+Por último, julgamos importante mencionar que fomos contra a recomendação do enunciado de utilizar a
+\emph{system call} \texttt{gettimeofday} para a medição de intervalos temporais, utilizando
+\texttt{clock\_gettime} no seu lugar. \texttt{gettimeofday} é uma função depreciada desde 2008,
+sendo que a sua substitução, \texttt{clock\_gettime}, já foi introduzida em 2001, pelo que o seu uso
+não afetaria a portabilidade do \emph{software} desenvolvido. Ademais, esta função, quando usada com
+\texttt{CLOCK\_MONOTONIC}, não é influenciada por mudanças no relógio do computador (por exemplo,
+um ajuste do utilizador), garantindo sempre que o valor de tempo devolvido aumenta e que não se
+calculam intervalos de tempo negativos.
+
 \section{Conclusão}
+
+
 
 % TODO
 
