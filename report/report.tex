@@ -62,14 +62,14 @@ responsável por coordenar, conforme as mensagens que são recebidas, as escrita
 \emph{logs}, feitas pelo módulo \texttt{log\_file}.
 
 Há várias estruturas de dados no servidor. \texttt{program} é um \emph{array} de argumentos
-terminado em \texttt{NULL}, facilmente providenciado a uma \emph{system call} na família
-\texttt{exec}. Vários programas formam uma \emph{pipeline} em \texttt{task}, que alternativamente
-pode ser constituída por um procedimento de C (é possível escalonar tarefas que não programas
-independentes). Há mais informação necessária para a gestão de tarefas do que uma lista de
-programas, como identificadores e tempos em filas de espera. Uma \texttt{tagged\_task} é formada por
-uma \texttt{task} e por esta informação. Continuando-se a cadeia de composição, tem-se a estrutura
-\texttt{priority\_queue}, um \emph{minheap} de tarefas, onde definir uma política de escalonamento
-se torna tão simples como definir uma função de comparação entre tarefas.
+terminado em \texttt{NULL}, facilmente providenciado a uma função na família \texttt{exec}. Vários
+programas formam uma \emph{pipeline} em \texttt{task}, que alternativamente pode ser constituída por
+um procedimento de C (é possível escalonar tarefas que não programas independentes). Há mais
+informação necessária para a gestão de tarefas do que uma lista de programas, como identificadores e
+tempos em filas de espera. Uma \texttt{tagged\_task} é formada por uma \texttt{task} e por esta
+informação. Continuando-se a cadeia de composição, tem-se a estrutura \texttt{priority\_queue}, uma
+\emph{minheap} de tarefas, onde definir uma política de escalonamento se torna tão simples como
+definir uma função de comparação entre tarefas.
 
 Vários outros módulos são responsáveis pela funcionalidade do servidor. Apesar de uma \texttt{task}
 poder ser criada manualmente, programa a programa, a funcionalidade de interpretação de uma
@@ -208,8 +208,6 @@ um ajuste do utilizador), garantindo sempre que o valor de tempo devolvido aumen
 calculam intervalos de tempo negativos.
 
 \section{Conclusão}
-
-
 
 % TODO
 
