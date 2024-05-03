@@ -275,6 +275,33 @@ calculam intervalos de tempo negativos.
 
 \section{Conclusão}
 
-% TODO
+Após a conclusão deste trabalho prático, há vários aspetos do produto final que podem ser
+discutidos. Em primeiro lugar, o nosso grupo julga ter cumprido com correção os objetivos
+estipulados pelo enunciado. Ademais, encontra-se satisfeito com a qualidade do código escrito:
+contribuem para a sua facilidade de compreensão, modificação e extensão não só a farta documentação
+como a estrutura modular.
+
+No entanto, sentiram-se algumas dificuldades que prejudicaram a qualidade do \emph{software}
+produzido. Em primeiro lugar, uma parte considerável do código dedica-se à resiliência a erros e à
+serialização de mensagens. Este código apresenta bastante verbosidade e baixa complexidade,
+distraindo o seu leitor da verdadeira funcionalidade de cada procedimento. Uma possível solução para
+este problema seria o uso de uma linguagem de programação que não exija muita verbosidade para estas
+tarefas, mas permita, tal como C, controlo direto sobre a interação com o sistema operativo. Por
+exemplo, Zig encaixa-se nestes critérios e o nosso grupo julga que seja uma linguagem ideal para o
+projeto de SO.
+
+Ademais, devido à natureza dos descritores de ficheiros em sistemas UNIX, foi difícil conservar uma
+boa arquitetura modular. Como estes são duplicados para processos filhos, foi frequente a
+necessidade de estes os fecharem, mas tal complexifica as relações de dependência entre módulos,
+dado que os processos criados precisam de conhecer todas as estruturas de dados com descritores
+abertos. Se o \emph{standard} POSIX definisse uma \emph{flag} semelhante a \texttt{O\_CLOEXEC} mas
+para a \emph{system call} \texttt{fork()}, não teríamos este problema.
+
+Logo, considerando as limitações com que tivemos de lidar, o nosso grupo considera ter desenvolvido
+uma solução de qualidade para o problema proposto pelo enunciado. No entanto, caso fosse permitido o
+uso de sinais, poder-se-ia desenvolver um servidor completamente diferente, com suporte para
+políticas de escalonamento com desafetação forçada, \emph{timeouts} para assegurar uma maior
+segurança a ataques \emph{Denial of Service} e muitas outras funcionalidades, apesar de tal exigir
+uma arquitetura muito distinta.
 
 \end{document}
