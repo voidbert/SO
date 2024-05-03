@@ -1,5 +1,6 @@
 \documentclass[11pt]{article}
 
+\usepackage[portuguese]{babel}
 \usepackage{float}
 \usepackage[a4paper, margin=2cm]{geometry}
 \usepackage{graphicx}
@@ -35,7 +36,66 @@
 
 \section{Arquitetura multiprocesso}
 
-% TODO
+O servidor desenvolvido utiliza uma arquitetura multiprocesso para ser capaz de correr várias
+tarefas em simultâneo, tal como pedido pelo enunciado. O processo principal, o orquestrador, é
+responsável por criar e coordenar outros processos. O modo como o servidor responde a mensagens do
+cliente criando novos processos é descrito nesta secção. As mensagens mencionadas aqui são descritas
+detalhadamente em anexo, na especificação do protocolo utilizado.
+
+Quando o cliente pede a execução de uma nova tarefa através de uma escrita num \emph{pipe} com nome,
+o orquestrador é responsável pelo seu \emph{parsing}, devolvendo ao cliente uma mensagem de sucesso
+(\texttt{S2C\_TASK\_ID}) ou de erro (\texttt{S2C\_ERROR}). Na figura abaixo, pode observar-se o caso
+em que o utilizador pede ao servidor a execução de um programa único (tipo de mensagem
+\texttt{C2S\_SEND\_PROGRAM}), mas envia-lhe uma \emph{pipeline} (que deveria estar presente numa
+mensagem \texttt{C2S\_SEND\_TASK}), resultando num erro de \emph{parsing} comunicado por um outro
+\emph{pipe} com nome, exclusivo à instância do cliente.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{report_figures/CommunicationParsingFailure.png}
+    \caption{Comunicação entre o cliente e o servidor em caso de falha de \emph{parsing}.}
+\end{figure}
+
+No final de cada conexão, o servidor verifica se tem capacidade para a execução de mais tarefas e,
+em caso afirmativo, cria um novo processo para a tarefa na frente da fila de espera. Este processo é
+responsável por executar os vários programas presentes na tarefa (que pode ser uma \emph{pipeline}),
+esperar pelo seu término, e avisar o orquestrador que ele mesmo terminou, através de uma escrita no
+mesmo FIFO que o cliente utiliza (mensagem \texttt{C2S\_TASK\_DONE}). Deste modo, o orquestrador
+sabe que pode executar a \emph{system call} bloqueante \texttt{wait()}. Na figura abaixo, observa-se
+a receção e escalonamento imediato da primeira tarefa recebida pelo servidor:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.65\textwidth]{report_figures/CommunicationSchedule.png}
+    \caption{Comunicação entre o cliente e o servidor no caso da tarefa ser imediatamente
+        escalonada.}
+\end{figure}
+
+O outro tipo de comunicação possível é um pedido de estado do servidor feito pelo cliente
+(\texttt{C2S\_STATUS}). Como, para respeitar o que foi pedido pelo enunciado, o orquestrador não
+deve parar de ler pedidos de utilizadores enquanto comunica o seu estado a outro, a comunicação de
+estado ao cliente é feita por um processo distinto, como se vê na figura abaixo:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{report_figures/CommunicationStatus.png}
+    \caption{Comunicação entre o cliente e o servidor num pedido de estado bem sucedido.}
+\end{figure}
+
+O processo de comunicação de estado transmite ao cliente, em mensagens \texttt{S2C\_STATUS}, as
+várias tarefas em execução, em fila de espera e já executadas (estas últimas são lidas do histórico
+do servidor guardado em ficheiro). Tal como ocorre com a execução de tarefas regulares, é
+necessário informar o orquestrador que pode aguardar pelo processo filho quase a
+\emph{zombieficar-se}. Como as tarefas de estado são escalonadas do mesmo modo que as tarefas
+regulares, existe um limite superior de tarefas executadas em simultâneo. No entanto, para não se
+fazer o cliente aguardar quando não há capacidade de escalonamento disponível, é enviada uma
+mensagem de erro, como se vê na figura abaixo:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{report_figures/CommunicationStatusFailure.png}
+    \caption{Comunicação entre o cliente e o servidor num pedido de estado falhado.}
+\end{figure}
 
 \section{Arquitetura modular}
 
