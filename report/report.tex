@@ -258,6 +258,12 @@ utilizasse uma fila simples. No entanto, por motivos de simplicidade, preferiu-s
 estrutura de dados com pior desempenho do que a adição de código necessária para se suportarem duas
 estruturas.
 
+Além disso, devemos mencionar que apenas usámos as bibliotecas \texttt{libc}, \texttt{libm} e
+\texttt{librt}, todas constituintes da biblioteca POSIX de C. Não utilizámos código de terceiros
+para a implementação de estruturas de dados, dado que quando a equipa docente publicou a FAQ a
+explicitamente autorizar o seu uso, já as estruturas de dados como \emph{arrays} dinâmicos e filas
+de prioridade tinham sido implementadas.
+
 Por último, julgamos importante mencionar que fomos contra a recomendação do enunciado de utilizar a
 \emph{system call} \texttt{gettimeofday} para a medição de intervalos temporais, utilizando
 \texttt{clock\_gettime} no seu lugar. \texttt{gettimeofday} é uma função depreciada desde 2008,
