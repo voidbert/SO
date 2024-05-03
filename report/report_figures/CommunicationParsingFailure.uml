@@ -1,0 +1,6 @@
+@startuml
+	actor Cliente
+
+	Cliente -> Orquestrador : ""C2S_SEND_PROGRAM("ls / | wc")""
+	Orquestrador -> Cliente : ""S2C_ERROR("Parsing failure!")""
+@enduml

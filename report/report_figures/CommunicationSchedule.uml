@@ -1,0 +1,17 @@
+@startuml
+	actor Cliente
+	Cliente -> Orquestrador : ""C2S_SEND_PROGRAM("ls /")""
+	Orquestrador -> Cliente : ""S2C_TASK_ID(1)""
+
+	create task_runner
+	Orquestrador -> task_runner : ""fork()""
+
+	create "ls /"
+	task_runner -> "ls /" : ""fork(), exec()""
+	"ls /" -> task_runner : ""SIGCHLD""
+	destroy "ls /"
+
+	task_runner -> Orquestrador : ""C2S_TASK_DONE(time)""
+	task_runner -> Orquestrador : ""SIGCHLD""
+	destroy task_runner
+@enduml
