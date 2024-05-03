@@ -22,10 +22,10 @@
 \section{Protocolo}
     O protocolo implementado no nosso projeto define um conjunto de instruções usadas para a
     correta identificação e estruturação das mensagens enviadas entre cliente e servidor. De seguida
-    apresentamos uma definição para cada tipo de mensagem definido no nosso protocolo, seguido de
-    uma figura ilustrativa que apresenta graficamente a estrutura de cada tipo de mensagem. A ordem
-    de apresentação dos diferentes campos em cada parágrafo é condizente com a ordem de apresentação
-    gráfica.
+    apresentamos uma definição para cada tipo de mensagem definida no nosso protocolo, cada uma
+    acompanhada por uma figura ilustrativa que apresenta graficamente a estrutura de cada tipo de
+    mensagem. A ordem de apresentação dos diferentes campos que compõem um dado tipo de mensagem em
+    cada definição é condizente com a sua ordem de apresentação nas figuras.
 
     Do lado do cliente podemos esperar o envio de 4 tipos diferentes de mensagem, representados no
     protocolo a partir das seguintes etiquetas bem definidas:
@@ -37,10 +37,9 @@
     \texttt{PROTOCOL\_C2S\_SEND\_TASK} devem transportar múltiplos programas a ser executados em
     \emph{pipeline}. Ambos os tipos possuem uma parametrização idêntica, sendo compostos por 5
     campos; o identificador do tipo de mensagem, que terá de ser uma das duas opções apresentadas
-    anteriormente; o identificador do processo que enviou a mensagem (\emph{process identifier});
-    uma marca temporal do momento em que a mensagem foi enviada; o tempo de execução previsto pelo
-    cliente em milissegundos, e, por fim, o comando introduzido pelo utilizador ao executar o
-    cliente.
+    anteriormente; o identificador do processo que enviou a mensagem (\emph{pid}); uma marca
+    temporal do momento em que a mensagem foi enviada; o tempo de execução previsto pelo cliente, em
+    milissegundos, e, por fim, o comando introduzido pelo utilizador ao executar o cliente.
 
     \begin{center}
         \abovedisplayskip=-1pt
@@ -78,9 +77,9 @@
     \end{center}
 
     Por último, mensagens do tipo \texttt{PROTOCOL\_C2S\_STATUS} são responsáveis por transportar
-    pedidos de estado do servidor. A sua estrutura é bastante simples, sendo apenas compostas por
-    2 campos; o identificador do tipo de mensagem, obrigatoriamente \texttt{PROTOCOL\_C2S\_STATUS},
-    e o identificador de processo do cliente.
+    pedidos de estado de tarefas recebidas no servidor. A sua estrutura é bastante simples, sendo
+    apenas compostas por 2 campos; o identificador do tipo de mensagem, obrigatoriamente
+    \texttt{PROTOCOL\_C2S\_STATUS}, e o identificador de processo do cliente.
 
     \begin{center}
         \abovedisplayskip=-1pt
@@ -137,16 +136,15 @@
     \end{center}
 
     Por fim, resta detalhar as mensagens \texttt{PROTOCOL\_S2C\_STATUS}, cuja função é informar
-    clientes acerca do estado da respetiva tarefa que requisitaram do servidor. A estruturação deste
-    tipo de mensagens é mais complexa, sendo cada mensagem composta por 9 campos; o tipo de
-    mensagem, obrigatoriamente \texttt{PROTOCOL\_S2C\_STATUS}; o estado da tarefa; o identificador
-    da tarefa a que a mensagem se refere; uma etiqueta que identifica se um erro foi detetado
-    durante a execução da tarefa; o tempo, em microssegundos, que o processo demorou a chegar ao
-    servidor; o tempo que a tarefa esteve em fila de espera, que apenas se aplica a tarefas já
-    terminadas, ou em execução; o tempo de execução da tarefa, aplicado apenas a tarefas que já
-    terminaram a sua execução; o tempo que o processo filho que executou a tarefa demorou a dizer ao
-    servidor que a tarefa tinha sido terminada, e, finalmente, a linha de comando da tarefa
-    submetida. \\
+    o cliente acerca do estado de uma tarefa em particular. A estruturação deste tipo de mensagens é
+    mais complexa, sendo cada mensagem composta por 9 campos; o tipo de mensagem, obrigatoriamente
+    \texttt{PROTOCOL\_S2C\_STATUS}; o estado da tarefa; o identificador da tarefa a que a mensagem
+    se refere; uma etiqueta que identifica se um erro foi detetado durante a execução da tarefa; o
+    tempo, em microssegundos, que o processo demorou a chegar ao servidor; o tempo que a tarefa
+    esteve em fila de espera, que apenas se aplica a tarefas já terminadas, ou em execução; o tempo
+    de execução da tarefa, aplicado apenas a tarefas que já terminaram a sua execução; o tempo que o
+    servidor demorou a receber a mensagem de término do filho que executou a tarefa, e, finalmente,
+    a linha de comando da tarefa submetida. \\
 
     \begin{adjustwidth}{-1in}{-1in}
     \begin{center}
