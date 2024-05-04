@@ -4,6 +4,7 @@
 \usepackage{float}
 \usepackage[a4paper, margin=2cm]{geometry}
 \usepackage{graphicx}
+\usepackage{hyperref}
 \usepackage{setspace}
 
 \chardef\_=`_
@@ -133,12 +134,13 @@ definir uma função de comparação entre tarefas.
 
 Vários outros módulos são responsáveis pela funcionalidade do servidor. Apesar de uma \texttt{task}
 poder ser criada manualmente, programa a programa, a funcionalidade de interpretação de uma
-\emph{string} de linha de comandos é providenciada pelo módulo \texttt{command\_parser}.
-\texttt{scheduler} é responsável por saber que tarefas estão em execução e em fila de espera,
-criando novos processos para a execução de novas tarefas desde que tenha disponibilidade para tal.
-Há dois programas que são executados, \texttt{status}, responsável por enviar ao cliente informação
-sobre o servidor sem o bloquear, e \texttt{task\_runner}, responsável pela execução de tarefas
-como \emph{pipelines}, informando o processo pai do orquestrador quando estas terminam.
+\emph{string} de linha de comandos é providenciada pelo módulo \texttt{command\_parser}. Tivemos o
+cuidado de que este módulo suportasse aspas únicas e duplas corretamente. Um outro módulo é
+\texttt{scheduler}, responsável por saber que tarefas estão em execução e em fila de espera, criando
+novos processos para a execução de novas tarefas desde que tenha disponibilidade para tal. Há dois
+programas que são executados, \texttt{status}, responsável por enviar ao cliente informação sobre o
+servidor sem o bloquear, e \texttt{task\_runner}, responsável pela execução de tarefas como
+\emph{pipelines}, informando o seu processo pai quando estas terminam.
 
 A arquitetura modular utilizada foi essencial para o \emph{software} desenvolvido. Não só garante
 código de melhor qualidade, como permite evitar erros (como erros de memória e invariantes violadas)
@@ -157,27 +159,27 @@ as correções que deles resultaram.
 O teste \texttt{fds.sh} verifica quais são os descritores de ficheiro abertos num processo criado
 pelo servidor em qualquer posição possível numa \emph{pipeline}. Em princípio, o descritor 0
 (\texttt{stdin}) devia estar aberto para todos os processos que não o primeiro da \emph{pipeline}, e
-os descritores 1 e 2 (\texttt{stdout} e \texttt{stderr}) deveriam ser os únicos restantes abertos.
-No entanto, outros descritores abertos foram detetados e o código de \texttt{task\_runner} foi
-corrigido para fechar alguns descritores de \emph{pipes} que se mantinham abertos. Este é o único
-teste que não corre em outros sistemas POSIX que não Linux, pois precisa de acesso à diretoria
-\texttt{/proc/self/fd}.
+os descritores 1 e 2 (\texttt{stdout} e \texttt{stderr}) deveriam ser os únicos restantes abertos
+para qualquer processo. No entanto, outros descritores abertos foram detetados e o código de
+\texttt{task\_runner} foi corrigido para fechar alguns descritores de \emph{pipes} que se mantinham
+abertos. Este é o único teste que não corre em outros sistemas POSIX que não Linux, pois precisa de
+acesso à diretoria \texttt{/proc/self/fd}.
 
 De seguida, o teste \texttt{length.sh} verifica que o servidor suporta corretamente mensagens com o
-comprimento máximo especificado. Inicialmente, tarefas com comandos muito longos podiam ser
-escalonadas, mas não surgiam num pedido de \texttt{status} do cliente. São necessários limites de
-comprimento para garantir a atomicidade de escritas no FIFO. Caso o comprimento do comando de uma
-tarefa seja superior ao permitido por uma mensagem de estado, o comando é substituído pela
-\emph{string} \texttt{"COMMAND TOO LONG"}.
+comprimento máximo especificado, necessário para garantir a atomicidade de escritas no FIFO.
+Inicialmente, tarefas com comandos muito longos podiam ser escalonadas, mas não surgiam num pedido
+de \texttt{status} do cliente. Caso o comprimento do comando de uma tarefa seja superior ao
+permitido por uma mensagem de estado, o comando é substituído pela \emph{string}
+\texttt{"COMMAND TOO LONG"}.
 
 O teste \texttt{order.sh} garante que os processos enviados ao servidor são escalonados corretamente
 conforme a política de escalonamento definida. Este teste não revelou qualquer erro no comportamento
 do servidor. Outro teste que não revelou problemas foi \texttt{parser.sh}, que garante que o
 \emph{parser} de linhas de comando funciona como esperado. Outro teste que não exigiu alterações ao
-código escrito foi \texttt{pipelines.sh}, que testa se os processos de uma tarefa são executados
-corretamente, permitindo que os \emph{pipes} entre eles transmitam mais informação do que a sua
-capacidade. Fá-lo através da transferência de um vídeo do YouTube, aplicando efeitos ao seu áudio, e
-reproduzindo-o, sem alguma vez escrever para o sistema de ficheiros.
+código escrito foi \texttt{pipelines.sh}, que testa se os \emph{pipes} entre comandos são capazes de
+transmitir mais informação do que a sua capacidade. Fá-lo através da transferência de um vídeo do
+YouTube, aplicando efeitos ao seu áudio, e reproduzindo-o, sem alguma vez escrever para o sistema de
+ficheiros.
 
 Ademais, o teste \texttt{status.sh} procura verificar se o servidor consegue enviar o seu estado ao
 cliente corretamente. Detetou-se perda de mensagens quando em elevadíssimo número, erro cuja causa
@@ -190,15 +192,15 @@ descritor durante a escrita de um cliente, resultando na terminação deste com 
 Não é um grande problema o cliente falhar, mas esta falha de comunicação pode ocorrer quando um
 processo filho do orquestrador tenta avisar o seu pai que a sua execução está prestes a terminar.
 Se o servidor não receber esta mensagem, nunca saberá que um dos seus filhos terminou e que passa a
-ter mais capacidade de escalonamento disponível. Foi-nos permitido pelo regente da UC ignorar o
+ter mais capacidade de escalonamento disponível. Foi-nos permitido, pelo regente da UC, ignorar o
 sinal através da \emph{system call} \texttt{signal}, permitindo que \texttt{write} termine com um
 código de erro, podendo retentar-se a comunicação com o servidor.
 
-Por último, o ficheiro \texttt{benchmark.sh} procura analisar o desempenho do servidor, fazendo
-pedidos de cem tarefas de duração entre 300 milissegundos e 2 segundos, executado para as políticas
-de escalonamento FCFS e SJF. No final, o estado do servidor é requisitado, revelando informação
-sobre o tempo de espera e de execução das tarefas, que sofre uma conversão para um formato CSV,
-importado para uma folha de cálculo e analisado:
+Por último, o ficheiro \texttt{benchmark.sh} procura analisar o desempenho das políticas de
+escalonamento \emph{First Come First Served} (FCFS) e \emph{Shortest Job First} (SJF), fazendo
+pedidos de cem tarefas de duração entre 300 milissegundos e 2 segundos. No final, o estado do
+servidor é requisitado, revelando informação sobre o tempo de espera e de execução das tarefas, que
+sofre uma conversão para um formato CSV, importado para uma folha de cálculo e analisado:
 
 \begin{figure}[H]
     \centering
@@ -217,61 +219,61 @@ importado para uma folha de cálculo e analisado:
         função da sua duração (em milissegundos), conforme a política de escalonamento usada.}
 \end{figure}
 
-Conforme esperado, quando a política \emph{Shortest Job First} é utilizada, tarefas de menor duração
-passam menos tempo em fila de espera (a maior contribuição para o tempo total de execução) do que as
-tarefas mais longas, evidenciado pelo comportamento linear tanto no histograma como no
-\emph{scatter}. Por outro lado, o tempo de execução quando se aplica a política \emph{First Come
-First Served} é relativamente uniforme, evidenciado pela altura relativamente próxima das barras do
-histograma e da aleatoriedade no \emph{scatter}.
+Conforme esperado, quando a política SJF é utilizada, tarefas de menor duração passam menos tempo em
+fila de espera (a maior contribuição para o tempo total de execução) do que as tarefas mais longas,
+evidenciado pelo comportamento crescente tanto no histograma como no \emph{scatter}. Por outro lado,
+o tempo de execução quando se aplica a política FCFS é relativamente uniforme, evidenciado pela
+altura relativamente próxima das barras do histograma e da aleatoriedade no \emph{scatter}.
 
 Como na política SJF as tarefas mais rápidas são executadas em primeiro lugar, os tempos de espera
 das primeiras tarefas são muito baixos, reduzindo o tempo médio de espera total. Esta tese
 verifica-se: SFJ apresenta um tempo médio de espera de 402 segundos mas estes tornam-se 592 segundos
 para FCFS. No entanto, em FCFS, tarefas de maior duração experienciam menor tempo médio, como se
 observa no primeiro par de gráficos. Logo, a escolha de uma política de escalonamento depende do
-tipo de tarefa que se pretende valorizar: usa-se SJF para processos de menor duração e FCFS para
-tarefas mais longas.
+tipo de tarefa que se pretende valorizar: usa-se SJF para processos de curta ou média duração, e
+FCFS para tarefas mais longas.
 
 \section{Decisões relevantes}
 
-Nesta secção, são discutidas algumas decisões tomadas ao longo do desenvolvimento do projeto, que
-julgamos serem relevantes de mencionar.
+Nesta secção, são discutidas algumas decisões tomadas ao longo do desenvolvimento do projeto que o
+nosso grupo julga serem relevantes de se mencionar.
 
 Inicialmente, o nosso grupo pensava em fazer um orquestrador seguro, capaz de estar presente num
 sistema partilhado (\emph{multiseat}). No entanto, foi rápida a conclusão de que sem virtualização
 (ou \emph{containerização}) seria possível um cliente enviar uma tarefa como \texttt{pkill
 orchestrator}. Ademais, poderiam ser envidas várias tarefas sem fim, tirando toda a capacidade ao
-servidor, sem que este as possa matar devido à impossibilidade de se utilizarem sinais. Logo, o
-objetivo de segurança foi descartado e o nosso foco passou para a robustez do servidor, que foi
-programado de modo a resistir a erros tanto internos (como \emph{system calls} falhadas) como
-externos (mensagens mal formatadas no FIFO), procurando recuperar e voltar a um estado conhecido.
-Ademais, durante o desenvolvimento era executado o \texttt{valgrind}, para procurar erros de memória
-como acessos indevidos à memória e \emph{memory leaks}. Após os vários testes realizados e falhas
+servidor, sem que este as possa matar devido à proibição de se utilizarem sinais. Logo, o objetivo
+de segurança foi descartado e o foco do grupo passou para a robustez do servidor, que foi programado
+de modo a resistir a erros tanto internos (como \emph{system calls} falhadas) como externos
+(mensagens mal formatadas no FIFO), procurando recuperar e voltar a um estado conhecido. Ademais,
+durante o desenvolvimento, foi sendo executado o \texttt{valgrind} \cite{valgrind} para procurar
+erros de memória como acessos indevidos e \emph{leaks}. Após os vários testes realizados e falhas
 propositadamente provocadas, julgamos que o servidor seja capaz de continuar a operar corretamente
 sem \emph{crashes}.
 
-De seguida, optámos por utilizar uma \emph{minheap} (\texttt{priority\_queue}) para as políticas de
-escalonamento SJF e FCFS, apesar de tal não conduzir ao melhor desempenho. \emph{Minheaps}
-apresentam complexidades (caso médio) de $\Theta(1)$ para inserção e $\Theta(\log n)$ para remoção.
-Estas são ideais para SJF, mas seria possível uma remoção em tempo constante para FCFS caso se
-utilizasse uma fila simples. No entanto, por motivos de simplicidade, preferiu-se o uso de uma única
-estrutura de dados com pior desempenho do que a adição de código necessária para se suportarem duas
-estruturas.
+Ademais, o nosso grupo optou por utilizar uma \emph{minheap} (\texttt{priority\_queue}) para as
+políticas de escalonamento SJF e FCFS, apesar de tal não conduzir ao melhor desempenho.
+\emph{Minheaps} apresentam complexidades (caso médio) de $\Theta(1)$ para inserção e
+$\Theta(\log n)$ para remoção. Estas são ideais para SJF, mas seria possível uma remoção em tempo
+constante para FCFS caso se utilizasse uma fila simples. No entanto, por motivos de simplicidade,
+preferiu-se o uso de uma única estrutura de dados com pior desempenho do que a adição de código
+necessária para se suportarem duas estruturas.
 
-Além disso, devemos mencionar que apenas usámos as bibliotecas \texttt{libc}, \texttt{libm} e
-\texttt{librt}, todas constituintes da biblioteca POSIX de C. Não utilizámos código de terceiros
-para a implementação de estruturas de dados, dado que quando a equipa docente publicou a FAQ a
-explicitamente autorizar o seu uso, já as estruturas de dados como \emph{arrays} dinâmicos e filas
-de prioridade tinham sido implementadas.
+Além disso, deve ser mencionado que apenas foram usadas as bibliotecas \texttt{libc}, \texttt{libm}
+e \texttt{librt}, todas constituintes da biblioteca POSIX de C. Não foi utilizado código de
+terceiros para a implementação de estruturas de dados, dado que quando a equipa docente publicou a
+FAQ a explicitamente autorizar o seu uso, já as estruturas de dados como \emph{arrays} dinâmicos e
+filas de prioridade tinham sido implementadas pelo nosso grupo.
 
-Por último, julgamos importante mencionar que fomos contra a recomendação do enunciado de utilizar a
+Por último, é importante mencionar que fomos contra a recomendação do enunciado de utilizar a
 \emph{system call} \texttt{gettimeofday} para a medição de intervalos temporais, utilizando
-\texttt{clock\_gettime} no seu lugar. \texttt{gettimeofday} é uma função depreciada desde 2008,
-sendo que a sua substitução, \texttt{clock\_gettime}, já foi introduzida em 2001, pelo que o seu uso
-não afetaria a portabilidade do \emph{software} desenvolvido. Ademais, esta função, quando usada com
-\texttt{CLOCK\_MONOTONIC}, não é influenciada por mudanças no relógio do computador (por exemplo,
-um ajuste do utilizador), garantindo sempre que o valor de tempo devolvido aumenta e que não se
-calculam intervalos de tempo negativos.
+\texttt{clock\_gettime} no seu lugar. \texttt{gettimeofday} é uma função depreciada desde 2008
+\cite{gettimeofday}, sendo que a sua substituição, \texttt{clock\_gettime}, já foi introduzida em
+2001, pelo que o seu uso não afetaria significativamente a portabilidade do \emph{software}
+desenvolvido. Ademais, esta função, quando usada com \texttt{CLOCK\_MONOTONIC}, não é influenciada
+por mudanças no relógio do computador (por exemplo, um ajuste do utilizador), garantindo sempre que
+o valor de tempo devolvido aumenta e que não se calculam intervalos de tempo negativos.
+\cite{clock_gettime}
 
 \section{Conclusão}
 
@@ -279,29 +281,49 @@ Após a conclusão deste trabalho prático, há vários aspetos do produto final
 discutidos. Em primeiro lugar, o nosso grupo julga ter cumprido com correção os objetivos
 estipulados pelo enunciado. Ademais, encontra-se satisfeito com a qualidade do código escrito:
 contribuem para a sua facilidade de compreensão, modificação e extensão não só a farta documentação
-como a estrutura modular.
+como também a estrutura modular.
 
 No entanto, sentiram-se algumas dificuldades que prejudicaram a qualidade do \emph{software}
 produzido. Em primeiro lugar, uma parte considerável do código dedica-se à resiliência a erros e à
-serialização de mensagens. Este código apresenta bastante verbosidade e baixa complexidade,
-distraindo o seu leitor da verdadeira funcionalidade de cada procedimento. Uma possível solução para
-este problema seria o uso de uma linguagem de programação que não exija muita verbosidade para estas
-tarefas, mas permita, tal como C, controlo direto sobre a interação com o sistema operativo. Por
-exemplo, Zig encaixa-se nestes critérios e o nosso grupo julga que seja uma linguagem ideal para o
-projeto de SO.
+serialização de mensagens. Este código apresenta bastante verbosidade, distraindo o seu leitor da
+verdadeira funcionalidade de cada procedimento. Uma possível solução para este problema seria o uso
+de uma linguagem de programação que não exija muita verbosidade para estas tarefas, mas permita, tal
+como C, controlo direto sobre a interação com o sistema operativo. Por exemplo, Zig encaixa-se
+nestes critérios e o nosso grupo julga que seja uma linguagem ideal para o projeto de SO.
 
 Ademais, devido à natureza dos descritores de ficheiros em sistemas UNIX, foi difícil conservar uma
-boa arquitetura modular. Como estes são duplicados para processos filhos, foi frequente a
-necessidade de estes os fecharem, mas tal complexifica as relações de dependência entre módulos,
-dado que os processos criados precisam de conhecer todas as estruturas de dados com descritores
-abertos. Se o \emph{standard} POSIX definisse uma \emph{flag} semelhante a \texttt{O\_CLOEXEC} mas
-para a \emph{system call} \texttt{fork()}, não teríamos este problema.
+boa arquitetura modular. Como são duplicados para processos filhos, foi frequente a necessidade de
+estes fecharem os descritores, mas tal complexifica as relações de dependência entre módulos, dado
+que os processos criados precisam de conhecer todas as estruturas de dados com descritores abertos.
+Se o \emph{standard} POSIX definisse uma \emph{flag} semelhante a \texttt{O\_CLOEXEC} mas para a
+\emph{system call} \texttt{fork()}, não teríamos este problema.
 
 Logo, considerando as limitações com que tivemos de lidar, o nosso grupo considera ter desenvolvido
 uma solução de qualidade para o problema proposto pelo enunciado. No entanto, caso fosse permitido o
 uso de sinais, poder-se-ia desenvolver um servidor completamente diferente, com suporte para
 políticas de escalonamento com desafetação forçada, \emph{timeouts} para assegurar uma maior
-segurança a ataques \emph{Denial of Service} e muitas outras funcionalidades, apesar de tal exigir
-uma arquitetura muito distinta.
+proteção contra ataques \emph{Denial of Service} e muitas outras funcionalidades, apesar de tal
+exigir uma arquitetura muito distinta.
+
+% Isto é uma grande gambiarra, mas funciona para pôr a bibliografia como uma secção.
+\section{Bibliografia}
+\def\refname{}
+\vspace{-1.5cm}
+\begin{thebibliography}{9}
+    \bibitem{valgrind}
+         Valgrind Developers, "Valgrind". valgrind.org.
+         \url{https://valgrind.org/}
+         (accessed May 4, 2024).
+    \bibitem{gettimeofday}
+        IEEE and The Open Group, "The Open Group Base Specifications Issue 7, 2018 edition".
+        pubs.opengroup.org
+        \url{https://pubs.opengroup.org/onlinepubs/9699919799/functions/gettimeofday.html}
+        (accessed May 4, 2024).
+    \bibitem{clock_gettime}
+        IEEE and The Open Group, "The Open Group Base Specifications Issue 7, 2018 edition".
+        pubs.opengroup.org
+        \url{https://pubs.opengroup.org/onlinepubs/9699919799/functions/clock_gettime.html}
+        (accessed May 4, 2024).
+\end{thebibliography}
 
 \end{document}
