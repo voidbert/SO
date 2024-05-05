@@ -1,15 +1,12 @@
 \documentclass[11pt]{article}
 
 \usepackage[portuguese]{babel}
+\usepackage{chngpage}
 \usepackage{float}
 \usepackage[a4paper, margin=2cm]{geometry}
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{setspace}
-
-\usepackage{amsmath}
-\usepackage{tabularx}
-\usepackage{chngpage}
 
 \chardef\_=`_
 
@@ -338,158 +335,191 @@ exigir uma arquitetura muito distinta.
         (accessed May 4, 2024).
 \end{thebibliography}
 
-\section{Protocolo}
+\section{Anexo -- Protocolo de comunicação entre processos}
 
-O protocolo implementado no nosso projeto define um conjunto de instruções usadas para a correta
-identificação e estruturação das mensagens enviadas entre cliente e servidor. De seguida
-apresentamos uma definição para cada tipo de mensagem definida no nosso protocolo, cada uma
-acompanhada por uma figura ilustrativa que apresenta graficamente a estrutura de cada tipo de
-mensagem. A ordem de apresentação dos diferentes campos que compõem um dado tipo de mensagem em cada
-definição é condizente com a sua ordem de apresentação nas figuras.
+\subsection{Camada \texttt{ipc}}
 
-Do lado do cliente podemos esperar o envio de 4 tipos diferentes de mensagem, representados no
-protocolo a partir das seguintes etiquetas bem definidas: \texttt{PROTOCOL\_C2S\_SEND\_PROGRAM},
-\texttt{PROTOCOL\_C2S\_SEND\_TASK}, \texttt{PROTOCOL\_C2S\_TASK\_DONE} e
-\texttt{PROTOCOL\_C2S\_STATUS}.
-
-Mensagens do tipo \texttt{PROTOCOL\_C2S\_SEND\_PROGRAM} têm como função o transporte de um programa
-único a ser executado pelo servidor, enquanto que mensagens \texttt{PROTOCOL\_C2S\_SEND\_TASK} devem
-transportar múltiplos programas a ser executados em \emph{pipeline}. Ambos os tipos possuem uma
-parametrização idêntica, sendo compostos por 5 campos; o identificador do tipo de mensagem, que terá
-de ser uma das duas opções apresentadas anteriormente; o identificador do processo que enviou a
-mensagem (\emph{pid}); uma marca temporal do momento em que a mensagem foi enviada; o tempo de
-execução previsto pelo cliente, em milissegundos, e, por fim, o comando introduzido pelo utilizador
-ao executar o cliente.
+O protocolo de comunicação desenvolvido apresenta dois níveis, de um modo semelhante ao que ocorre
+quando datagramas IP são encapsulados em tramas Ethernet. As tramas deste nível inferior têm sempre
+o mesmo cabeçalho, constituído por um comprimento antes da mensagem encapsulada. Este nível
+protocolar permite a separação das mensagens umas das outras.
 
 \begin{center}
-    \abovedisplayskip=-1pt
-    \texttt{PROTOCOL\_C2S\_SEND\_(PROGRAM / TASK)}
-    $$\overleftrightarrow{
-        \begin{tabular}{|c|c|c|c|c|}
-            \hline
-                type & client\_pid & time\_sent & expected\_time & command\_line
-                \rule[-2ex]{0pt}{6ex}\\
-            \hline
-        \end{tabular}
-    }$$
+    \begin{tabular}{|c|c|}
+        \hline
+        \texttt{payload\_length} & \texttt{message}    \\
+        \texttt{uint32\_t}       & \texttt{uint8\_t[]} \\
+        \hline
+    \end{tabular}
 \end{center}
 
-Já mensagens do tipo \texttt{PROTOCOL\_C2S\_TASK\_DONE} são responsáveis por avisar o servidor do
+Como a comunicação entre processos ocorre dentro do mesmo computador, a \emph{endianess} utilizada
+no protocolo é a do sistema em que o \emph{software} é utilizado. Ademais, cada trama tem um tamanho
+máximo de \texttt{PIPE\_BUF} \emph{bytes}, para garantir a atomicidade de escrita nos \emph{pipes}
+com nome.
+
+\subsection{Camada \texttt{protocol}}
+
+As mensagens enviadas entre o servidor e o cliente são encapsuladas em tramas \texttt{ipc}.
+Os nomes das mensagens do cliente para o servidor têm o prefixo \texttt{C2S}, enquanto que as
+mensagens em sentido contrário são identificadas por nomes com o prefixo \texttt{S2C}.
+
+\subsubsection{\texttt{C2S\_SEND\_PROGRAM} e \texttt{C2S\_SEND\_TASK}}
+
+Mensagens destes tipos têm como função a submissão ao servidor de um programa único ou de uma
+\emph{pipeline}, respetivamente. Ambos os tipos possuem uma parametrização idêntica, sendo compostos
+por 5 campos: o tipo de mensagem, que será uma das duas opções apresentadas anteriormente (valores
+inteiros \texttt{0} e \texttt{1}, respetivamente); o PID do processo que enviou a mensagem; uma
+marca temporal do momento em que a mensagem foi enviada (para cálculo do tempo na fila do FIFO); o
+tempo de execução previsto pelo cliente, em milissegundos; e, por fim, o comando introduzido pelo
+utilizador ao executar o cliente.
+
+\begin{center}
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+            \texttt{type}           &
+            \texttt{client\_pid}    &
+            \texttt{time\_sent}     &
+            \texttt{expected\_time} &
+            \texttt{command\_line}  \\
+
+            \texttt{uint8\_t}        &
+            \texttt{pid\_t}          &
+            \texttt{struct timespec} &
+            \texttt{uint32\_t}       &
+            \texttt{char[]}          \\
+        \hline
+    \end{tabular}
+\end{center}
+
+Note-se que \texttt{command\_line} não é terminada em \verb$'\0'$ e que o seu comprimento é
+determinado pelo comprimento da mensagem, definido pela camada \texttt{ipc}. O mesmo é verdade para
+todas as \emph{strings} neste protocolo.
+
+\subsubsection{\texttt{C2S\_TASK\_DONE}}
+
+As mensagens do tipo \texttt{C2S\_TASK\_DONE} (\texttt{2}) são responsáveis por avisar o servidor do
 término da execução de uma tarefa realizada por um processo filho, que neste contexto é tratado como
-cliente. A estrutura de mensagens deste tipo é caracterizada por 5 campos; o identificador do tipo
-de mensagem, obrigatoriamente \texttt{PROTOCOL\_C2S\_TASK\_DONE}; a posição em que a tarefa foi
-agendada; uma marca temporal de quando a tarefa terminou a sua execução; e, por fim, duas etiquetas,
-a primeira verifica se a tarefa executada é, ou não, um pedido de estado do servidor, e a segunda
-verifica se a execução da tarefa resultou, ou não, num erro.
+um cliente. A estrutura de mensagens deste tipo é caracterizada por 5 campos: o tipo da mensagem,
+obrigatoriamente \texttt{C2S\_TASK\_DONE}; a posição do escalonador em que a tarefa foi agendada
+(informação necessária para este saber que tarefa deve ser dada como terminada); uma marca temporal
+de quando a tarefa terminou a sua execução (para cálculo do tempo de execução); e, por fim, duas
+etiquetas: a primeira informa se a tarefa executada é, ou não, um pedido de estado do servidor (para
+se saber que escalonador deve terminar a tarefa), e a segunda verifica se a execução da tarefa
+resultou, ou não, num erro.
 
 \begin{center}
-    \abovedisplayskip=-1pt
-    \texttt{PROTOCOL\_C2S\_SEND\_TASK\_DONE}
-    $$\overleftrightarrow{
-        \begin{tabular}{|c|c|c|c|c|}
-            \hline
-                type & slot & time\_ended & is\_status & error
-                \rule[-2ex]{0pt}{6ex}\\
-            \hline
-        \end{tabular}
-    }$$
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+            \texttt{type}        &
+            \texttt{slot}        &
+            \texttt{time\_ended} &
+            \texttt{is\_status}  &
+            \texttt{error}       \\
+
+            \texttt{uint8\_t}        &
+            \texttt{size\_t}         &
+            \texttt{struct timespec} &
+            \texttt{uint8\_t}        &
+            \texttt{uint8\_t}        \\
+        \hline
+    \end{tabular}
 \end{center}
 
-Por último, mensagens do tipo \texttt{PROTOCOL\_C2S\_STATUS} são responsáveis por transportar
-pedidos de estado de tarefas recebidas no servidor. A sua estrutura é bastante simples, sendo apenas
-compostas por 2 campos; o identificador do tipo de mensagem, obrigatoriamente
-\texttt{PROTOCOL\_C2S\_STATUS}, e o identificador de processo do cliente.
+\subsubsection{\texttt{C2S\_STATUS}}
+
+O último tipo de mensagem enviada para o servidor é \texttt{C2S\_STATUS} (\texttt{3}), responsável
+por transportar pedidos de estado. A sua estrutura é bastante simples, sendo apenas composta por 2
+campos: o identificador do tipo de mensagem, obrigatoriamente \texttt{C2S\_STATUS}, e o PID do
+cliente, para se poder responder-lhe por um outro FIFO cujo nome é determinado pelo PID do processo.
 
 \begin{center}
-    \abovedisplayskip=-1pt
-    \texttt{PROTOCOL\_C2S\_STATUS}
-    $$\overleftrightarrow{
-        \begin{tabularx}{0.4\textwidth}
-            {|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|}
-            \hline
-                type & client\_pid
-                \rule[-2ex]{0pt}{6ex}\\
-            \hline
-        \end{tabularx}
-    }$$
+    \begin{tabular}{|c|c|}
+        \hline
+            \texttt{type}     & \texttt{client\_pid} \\
+            \texttt{uint8\_t} & \texttt{pid\_t}      \\
+        \hline
+    \end{tabular}
 \end{center}
 
-Do lado do servidor podemos esperar 3 tipos diferentes de mensagens: \texttt{PROTOCOL\_S2C\_ERROR},
-\texttt{PROTOCOL\_S2C\_TASK\_ID} e \texttt{PROTOCOL\_S2C\_STATUS}. O primeiro tipo de mensagem,
-\texttt{PROTOCOL\_S2C\_ERROR}, é responsável por avisar o cliente de erros ocorridos durante o
-processamento de uma tarefa. Para tal, apenas é necessário transportar na mensagem o identificador
-do tipo de mensagem, neste caso \texttt{PROTOCOL\_S2C\_ERROR}, e o erro em si.
+\subsection{\texttt{S2C\_ERROR}}
+
+Uma possível mensagem vinda do servidor é \texttt{S2C\_ERROR}, responsável por avisar o cliente de
+erros ocorridos durante o processamento de um pedido. Apenas é necessário transportar na mensagem o
+identificador do tipo de mensagem (\texttt{S2C\_ERROR}, de valor numérico \texttt{0}) e a
+\emph{string} do erro em si.
 
 \begin{center}
-    \abovedisplayskip=-1pt
-    \texttt{PROTOCOL\_S2C\_ERROR}
-    $$\overleftrightarrow{
-        \begin{tabularx}{0.4\textwidth}
-            {|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|}
-            \hline
-                type & error
-                \rule[-2ex]{0pt}{6ex}\\
-            \hline
-        \end{tabularx}
-    }$$
+    \begin{tabular}{|c|c|}
+        \hline
+            \texttt{type}     & \texttt{error}  \\
+            \texttt{uint8\_t} & \texttt{char[]} \\
+        \hline
+    \end{tabular}
 \end{center}
 
-Mensagens do tipo \texttt{PROTOCOL\_S2C\_TASK\_ID} estão encarregues de informar clientes acerca do
-identificador da tarefa que requisitaram ao servidor. Estas são, mais uma vez, de simples
-estruturação, contendo apenas o identificador do tipo de mensagem, obrigatoriamente
-\texttt{PROTOCOL\_S2C\_TASK\_ID}, e o identificador do processo agendado pelo servidor.
+Optou-se por se utilizar uma \emph{string} para erros (em vez de um \texttt{enum}) de modo a se
+simplificar o programa, dado que qualquer mensagem pode ser enviada sem adições ao conjunto de erros
+possíveis. No entanto, o nosso grupo encontra-se ciente que isto não seria possível num programa
+num contexto não académico, onde funcionalidade como localização seria necessária.
+
+\subsection{\texttt{S2C\_TASK\_ID}}
+
+Mensagens do tipo \texttt{S2C\_TASK\_ID} (valor \texttt{1}) são respostas a mensagens
+\texttt{C2S\_SEND\_(PROGRAM|TASK)}. Estão encarregues de informar clientes que uma tarefa submetida
+foi registada com sucesso, devolvendo o seu identificador. Estas mensagens apresentam uma estrutura
+simples, contendo apenas o identificador do tipo de mensagem, obrigatoriamente
+\texttt{S2C\_TASK\_ID}, e o identificador da tarefa registada pelo servidor.
 
 \begin{center}
-    \abovedisplayskip=-1pt
-    \texttt{PROTOCOL\_S2C\_TASK\_ID}
-    $$\overleftrightarrow{
-        \begin{tabularx}{0.4\textwidth}
-            {|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|}
-            \hline
-                type & id
-                \rule[-2ex]{0pt}{6ex}\\
-            \hline
-        \end{tabularx}
-    }$$
+    \begin{tabular}{|c|c|}
+        \hline
+            \texttt{type}     & \texttt{id}       \\
+            \texttt{uint8\_t} & \texttt{uint32\_t} \\
+        \hline
+    \end{tabular}
 \end{center}
 
-Por fim, resta detalhar as mensagens \texttt{PROTOCOL\_S2C\_STATUS}, cuja função é informar o
-cliente acerca do estado de uma tarefa em particular. A estruturação deste tipo de mensagens é mais
-complexa, sendo cada mensagem composta por 9 campos; o tipo de mensagem, obrigatoriamente
-\texttt{PROTOCOL\_S2C\_STATUS}; o estado da tarefa; o identificador da tarefa a que a mensagem se
-refere; uma etiqueta que identifica se um erro foi detetado durante a execução da tarefa; o tempo,
-em microssegundos, que o processo demorou a chegar ao servidor; o tempo que a tarefa esteve em fila
-de espera, que apenas se aplica a tarefas já terminadas, ou em execução; o tempo de execução da
-tarefa, aplicado apenas a tarefas que já terminaram a sua execução; o tempo que o servidor demorou a
-receber a mensagem de término do filho que executou a tarefa, e, finalmente, a linha de comando da
-tarefa submetida. \\
+\subsection{\texttt{S2C\_STATUS}}
 
+Por fim, resta descrever o tipo de mensagem \texttt{S2C\_STATUS} (\texttt{2}), cuja função é
+informar o cliente acerca do estado de uma tarefa em particular. São necessárias várias destas
+mensagens para informar o cliente do estado completo do servidor. A estrutura de mensagens deste
+tipo é a mais complexa, sendo cada mensagem composta por 9 campos: o tipo de mensagem,
+obrigatoriamente \texttt{S2C\_STATUS}; o estado da tarefa (concluída, em execução, em fila de
+espera, com os valores numéricos 0, 1, e 2, respetivamente); o identificador da tarefa a que a
+mensagem se refere; uma etiqueta que identifica se um erro foi detetado durante a execução da
+tarefa; quatro valores temporais em microssegundos, relativos ao tempo no FIFO do cliente para o
+servidor, ao tempo em fila de espera, ao tempo de execução, e ao tempo no FIFO entre o filho do
+orquestrador e o seu processo pai; e, finalmente, a linha de comando da tarefa submetida. \\
+
+\scriptsize
 \begin{adjustwidth}{-1in}{-1in}
-\begin{center}
-    \abovedisplayskip=-1pt
-    \texttt{PROTOCOL\_S2C\_STATUS}
-    $$\overleftrightarrow{
+    \begin{center}
         \begin{tabular}{|c|c|c|c|c|c|c|c|c|}
             \hline
-                type &
-                status &
-                id &
-                error &
-                time\_c2s\_fifo &
-                time\_waiting &
-                time\_executing &
-                time\_s2s\_fifo &
-                command\_line
-                \rule[-2ex]{0pt}{6ex}\\
+                \texttt{type}            &
+                \texttt{status}          &
+                \texttt{id}              &
+                \texttt{error}           &
+                \texttt{time\_c2s\_fifo} &
+                \texttt{time\_waiting}   &
+                \texttt{time\_executing} &
+                \texttt{time\_s2s\_fifo} &
+                \texttt{command\_line}   \\
+
+                \texttt{uint8\_t}  &
+                \texttt{uint8\_t}  &
+                \texttt{uint32\_t} &
+                \texttt{uint8\_t}  &
+                \texttt{double}    &
+                \texttt{double}    &
+                \texttt{double}    &
+                \texttt{double}    &
+                \texttt{char[]}    \\
             \hline
         \end{tabular}
-    }$$
-\end{center}
+    \end{center}
 \end{adjustwidth}
-
-O estado de uma tarefa pode ser descrito de 3 formas, a tarefa pode estar em execução, pode já ter
-terminado, ou pode ainda estar em fila de espera. Representamos estes 3 estados, respetivamente, a
-partir das seguintes etiquetas bem definidas: \texttt{PROTOCOL\_TASK\_STATUS\_EXECUTING},
-\texttt{PROTOCOL\_TASK\_STATUS\_DONE} e \texttt{PROTOCOL\_TASK\_STATUS\_QUEUED}.
 
 \end{document}
