@@ -1,0 +1,20 @@
+@startuml
+	actor Cliente
+	participant status
+	participant Orquestrador
+
+	Cliente -> Orquestrador : ""C2S_STATUS""
+	|||
+
+	create status
+	Orquestrador -> status : ""fork()""
+	status -> Cliente : ""S2C_STATUS(1)""
+	status -> Cliente : ""S2C_STATUS(2)""
+	status -> Cliente : ""S2C_STATUS(3)""
+	status -> Cliente : ""S2C_STATUS(4)""
+
+
+	status -> Orquestrador : ""C2S_TASK_DONE(time)""
+	status -> Orquestrador : ""  SIGCHLD""
+	destroy status
+@enduml

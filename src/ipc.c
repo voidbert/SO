@@ -52,9 +52,6 @@
  */
 #define IPC_CLIENT_FIFO_PATH "/tmp/client%ld.fifo"
 
-/** @brief Bytes used to identify the beginning of an IPC message. */
-#define IPC_MESSAGE_HEADER_SIGNATURE 0xFEEDFEED
-
 /**
  * @struct ipc
  * @brief  An inter-process connection using named pipes.
@@ -82,15 +79,13 @@ struct ipc {
  * @struct ipc_frame_t
  * @brief  A frame containing a message, sent by an ::ipc_t.
  *
- * @var ipc_frame_t::signature
- *     @brief Must be ::IPC_MESSAGE_HEADER_SIGNATURE.
  * @var ipc_frame_t::payload_length
  *     @brief Number of bytes in ipc_frame_t::message.
  * @var ipc_frame_t::message
  *     @brief Encapsulated message with a length of ipc_frame_t::payload_length bytes.
  */
 typedef struct __attribute__((packed)) {
-    uint32_t signature, payload_length;
+    uint32_t payload_length;
     uint8_t  message[IPC_MAXIMUM_MESSAGE_LENGTH];
 } ipc_frame_t;
 
@@ -187,12 +182,12 @@ int ipc_send(ipc_t *ipc, const void *message, size_t length) {
         return 1;
     }
 
-    ipc_frame_t frame = {.signature = IPC_MESSAGE_HEADER_SIGNATURE, .payload_length = length};
+    ipc_frame_t frame = {.payload_length = length};
     memcpy(frame.message, message, length);
-    ssize_t frame_length = length + 2 * sizeof(uint32_t);
+    // ssize_t frame_length = length + 2 * sizeof(uint32_t);
 
     (void) signal(SIGPIPE, SIG_DFL); /* No errors other than EINVAL */
-    if (write(ipc->send_fd, &frame, frame_length) != frame_length)
+    if (write(ipc->send_fd, &frame, PIPE_BUF) != PIPE_BUF)
         return 1;
     return 0;
 }
@@ -208,14 +203,14 @@ int ipc_send_retry(ipc_t *ipc, const void *message, size_t length, unsigned int 
         return 1;
     }
 
-    ipc_frame_t frame = {.signature = IPC_MESSAGE_HEADER_SIGNATURE, .payload_length = length};
+    ipc_frame_t frame = {.payload_length = length};
     memcpy(frame.message, message, length);
-    ssize_t frame_length = length + 2 * sizeof(uint32_t);
+    // ssize_t frame_length = length + 2 * sizeof(uint32_t);
 
     (void) signal(SIGPIPE, SIG_IGN); /* No errors other than EINVAL */
     unsigned int recovered = 0;
     for (unsigned int i = 0; i < max_tries; ++i) {
-        if (write(ipc->send_fd, &frame, frame_length) == frame_length) {
+        if (write(ipc->send_fd, &frame, PIPE_BUF) == PIPE_BUF) {
             if (recovered)
                 util_error("%s(): IPC synchronization error recovered from (%u attempts)\n",
                            __func__,
@@ -309,43 +304,22 @@ int ipc_listen(ipc_t                         *ipc,
             return 1;
 
         uint8_t buf[IPC_SERVER_LISTEN_BUFFER_SIZE];
-        ssize_t bytes_read, residuals = 0;
-        while (1) {
-            bytes_read =
-                read(ipc->receive_fd, buf + residuals, IPC_SERVER_LISTEN_BUFFER_SIZE - residuals);
-            if (bytes_read < 0) { /* Read error */
-                util_perror("ipc_listen(): Recovering from read() error");
-                (void) close(ipc->receive_fd);
-                ipc->receive_fd = -1;
+        ssize_t bytes_read;
+        while ((bytes_read = read(ipc->receive_fd, buf, IPC_SERVER_LISTEN_BUFFER_SIZE))) {
+            size_t messages_read = bytes_read / PIPE_BUF;
+            if (bytes_read % PIPE_BUF != 0) {
+                util_error("%s(): dropping all frames! Not enough data!\n", __func__);
+                __ipc_flush_and_close(ipc);
                 break;
             }
 
-            ssize_t  remaining   = residuals + bytes_read;
-            uint8_t *buffer_read = buf;
-            while (remaining > (ssize_t) (2 * sizeof(uint32_t))) {
-                ipc_frame_t *frame = (ipc_frame_t *) buffer_read;
+            for (size_t i = 0; i < messages_read; ++i) {
+                ipc_frame_t *frame = (ipc_frame_t *) buf + i;
 
-                if (frame->signature != IPC_MESSAGE_HEADER_SIGNATURE ||
-                    frame->payload_length == 0 ||
+                if (frame->payload_length == 0 ||
                     frame->payload_length > IPC_MAXIMUM_MESSAGE_LENGTH) {
-                    util_error("%s(): dropping input frames! Invalid frame!\n", __func__);
-                    __ipc_flush_and_close(ipc);
-                    break;
-                }
-
-                /* Validate header in context */
-                uint32_t frame_length = frame->payload_length + 2 * sizeof(uint32_t);
-                if (frame_length > remaining) {
-                    if (bytes_read == 0) { /* EOF */
-                        util_error("%s(): dropping input frame! Not enough data!\n", __func__);
-                        (void) close(ipc->receive_fd);
-                        ipc->receive_fd = -1;
-                        break;
-                    } else {
-                        memmove(buf, buffer_read, remaining); /* Avoid aliasing */
-                        residuals = remaining;
-                        break;
-                    }
+                    util_error("%s(): dropping single frame! Invalid frame!\n", __func__);
+                    continue;
                 }
 
                 /* Dispatch message */
@@ -354,29 +328,16 @@ int ipc_listen(ipc_t                         *ipc,
                     __ipc_flush_and_close(ipc);
                     return mcb_ret;
                 }
-
-                remaining -= frame_length;
-                buffer_read += frame_length;
-            }
-
-            if (ipc->receive_fd > 0) { /* No errors */
-                if (bytes_read == 0) {
-                    (void) close(ipc->receive_fd);
-                    ipc->receive_fd = -1;
-                    break;
-                }
-
-                if (remaining > 0 && remaining <= (ssize_t) (2 * sizeof(uint32_t)))
-                    util_error("%s(): dropping input frame! Not enough data!\n", __func__);
-            } else {
-                break;
             }
         }
+
+        if (bytes_read < 0)
+            util_perror("ipc_listen(): Recovering from read() error");
+        (void) close(ipc->receive_fd);
+        ipc->receive_fd = -1;
 
         int bcb_ret = block_cb(state);
         if (bcb_ret)
             return bcb_ret;
     }
-
-    return 0;
 }
