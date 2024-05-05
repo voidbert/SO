@@ -1,0 +1,6 @@
+@startuml
+	actor Cliente
+
+	Cliente -> Orquestrador : ""C2S_STATUS""
+	Orquestrador -> Cliente : ""S2C_ERROR("No capacity available!")""
+@enduml
