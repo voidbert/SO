@@ -3,6 +3,8 @@
 Process scheduler with a client-server architecture, developed for our Operating Systems class.
 See [the full project requirements](Requirements.pdf) (in Portuguese) for more information.
 
+**Grade**: 20 / 20 🚀⭐
+
 ## Building
 
 ### Dependencies
